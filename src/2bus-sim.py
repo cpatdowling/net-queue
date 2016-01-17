@@ -91,7 +91,10 @@ while t < SIMULATION_TIME:
     
     #increment simulation time
     t += deltaT
-    
+
+print("Total simulation time: " + str(SIMULATION_TIME))
+print("Simulation resolution: " + str(deltaT) + "\n")    
 for i in QNet.bface.keys():
     print("block number " + str(i) + ": " + str(QNet.bface[i].total) + " total arrivals")
+print("\nAsymmetric net bus flows:")
 print(QNet.totalFlow)
