@@ -1,11 +1,11 @@
 #simulation variables
 SIMULATION_TIME = 1000.0
 DELTA_T = 0.001
-ARRIVAL_RATE = 1.8
+ARRIVAL_RATE = 0.5
 
 #default is 5.0
 SERVICE_RATE = 5.0
-RENEGE_TIME = 0.5
+RENEGE_TIME = 0.0
 
 #default is 5
 NUM_SERVERS = 5

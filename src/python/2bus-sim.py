@@ -1,91 +1,53 @@
 from qnet import *
 
-QNet = blockfaceNet("/home/chase/projects/net-queue/src/python/QNetparams.txt")
+QNet = blockfaceNet("/home/chase/projects/net-queue/src/python/QNetparams.txt", ["utilization"])
 
-#keeping track of people moving from one blockface to next
-#key is destination blockface index, value is number of quitters moving to new block face
-quitters = {}
-for bface in QNet.bface.keys():
-    quitters[bface] = 0
-nextStepQuitters = quitters
-
-t = 0.0
-deltaT = QNet.params.time_resolution
-while t < QNet.params.simulation_time:
+while QNet.timer < QNet.params.simulation_time:
     #find block numbers of blocks with <=0.0 time till next arrival
     #can use itertools.compress on new arrivals list comprehension
-    currently_arriving_blocks = [ i for i, x in enumerate(QNet.new_arrivals) if x <= 0.0 ]
+    currently_arriving_blocks = [ j for j, x in enumerate(QNet.new_arrivals) if x < QNet.params.time_resolution ]
     if len(currently_arriving_blocks) > 0:
-        #give arriving blocks new arrivals
-        #prioritize exogenous arrivals
+    #give arriving blocks new arrivals
+    #prioritize exogenous arrivals
         for i in currently_arriving_blocks:
             blockindex = QNet.injection_map[i]
             next_arrival_time = np.random.exponential(QNet.bface[blockindex].arrival_rate)
             QNet.new_arrivals[i] = next_arrival_time 
-            
-            QNet.bface[blockindex].total += 1
             QNet.bface[blockindex].exogenous += 1
-
-            car_park_time = np.random.exponential(QNet.bface[blockindex].service_rate)
-            car_renege_time = QNet.bface[blockindex].renege_rate            
-            currently_available_spots = [ j for j, x in enumerate(QNet.allSpots[blockindex]) if x <= car_renege_time ]
-            if len(currently_available_spots) > 0:
-                #parking available, choose the first available spot
-                QNet.allSpots[blockindex][currently_available_spots[0]] = car_park_time
-                QNet.bface[blockindex].served += 1
-            else:
-                #car moves to different blockface--uniformly sample from neighbors
-                neighbors = [ j for j, x in enumerate(QNet.network[blockindex]) if x == 1 ]
-                newBface = np.random.choice(neighbors)
-                QNet.totalFlow[blockindex,newBface] += 1
-                quitters[newBface] += 1
-                
-    if any(quitters.values()):
-        #handle the people coming from other block faces
-        #keys are blockface indecies
-        #what I need is for the quitters to reappear after fixed time, they're instantaneously traveling
-        #to next block
-        for dest_bf in quitters.keys():
-            for k in range(quitters[dest_bf]):
-                #for each kth car arriving at this node from previous time step
-                car_park_time = np.random.exponential(QNet.bface[dest_bf].service_rate)
-                car_renege_time = QNet.bface[dest_bf].renege_rate  
-                currently_available_spots = [ j for j, x in enumerate(QNet.allSpots[dest_bf]) if x <= car_renege_time ]
-                if len(currently_available_spots) > 0:
-                    #parking available, choose the first available spot
-                    QNet.allSpots[dest_bf][currently_available_spots[0]] = car_park_time
-                    QNet.bface[dest_bf].served += 1
-                    quitters[dest_bf] -= 1
-                else:
-                    #car moves on to different blockface--uniformly sample from neighbors
-                    neighbors = [ j for j, x in enumerate(QNet.network[dest_bf]) if x == 1 ]
-                    newBface = np.random.choice(neighbors)
-                    QNet.totalFlow[dest_bf,newBface] += 1
-                    quitters[dest_bf] -= 1
-                    nextStepQuitters[newBface] += 1
-                QNet.bface[dest_bf].total += 1
-        for bface in quitters:
-            quitters[bface] += nextStepQuitters[bface]
+            #try to park, otherwise, drive somewhere else
+            QNet.park(blockindex)
     
-    #countdown on next arrival
-    QNet.new_arrivals = QNet.new_arrivals - deltaT
-    #countdown on serve times
-    QNet.allSpots = [ (spots - deltaT) for spots in QNet.allSpots ]
+    for origin in QNet.bface.keys():
+        #Checking for any drivers arriving at other blocks based on travel time in street buffer
+        #have to loop through every block? Yes, if I care about street direction
+        for dest in range(len(QNet.streets[origin])):
+            #for each possible destination index, get the block index, neighbors is list of block indexs connected to origin
+            #but dest is local index of street connected to origin to save space, 
+            #e.g. block 2 to block 3 is connected by block 2's street 1
+            destblock = QNet.bface[origin].neighbors[dest]
+            #at least first driver needs to be arriving
+            if len(QNet.streets[origin][dest]) > 0 and QNet.streets[origin][dest][0] < QNet.params.time_resolution:
+                #first driver in list will always be closest to 0 unless drive times vary
+                #>>>>>THIS WON'T WORK IF DRIVE TIMES ARE NOT CONSTANT<<<<<<<<<<<
+                for driver in QNet.streets[origin][dest]:
+                    #could be more than one arriving
+                    while QNet.streets[origin][dest][0] < QNet.params.time_resolution:
+                        QNet.park(destblock)
+                        #Get rid of first driver, go back up and check if next driver is also arriving
+                        QNet.streets[origin][dest].pop(0)
+                        if len(QNet.streets[origin][dest]) == 0:
+                            break
     
-    #increment simulation time
-    t += deltaT
-    if t % (QNet.params.simulation_time / 10) <= QNet.params.time_resolution and t >= 10.0:
-        print(str(int(t / (QNet.params.simulation_time/100))) + "% complete")
-        
-    #if traffic overflows, break loop
-    if any([ j for j, x in enumerate(quitters.values()) if x > (QNet.bface[1].num_parking_spots * QNet.params.simulation_time * 10) ]):
-        print("\n==Exception==")
-        print("Traffic overflow at simulation time: " + str(t))
-        print("Total flow: ")
-        print(QNet.totalFlow)
-        break
+    #step simulation forward and collect any flagged global stats
+    QNet.step_time()
 
 print("\n==Results==")
 for i in QNet.bface.keys():
-    print("block number " + str(i) + ": " + str(QNet.bface[i].total) + " total arrivals")
+    if i in QNet.injection_map.values():
+        print("block number " + str(i) + " (injector):\n\ttotal arrivals: " + str(QNet.bface[i].total))
+        print("\tinjected: " + str(QNet.bface[i].exogenous))
+    else:
+        print("block number " + str(i) + ":\n\ttotal arrivals: " + str(QNet.bface[i].total))
+    print("\tparked: " + str(QNet.bface[i].served))
+    print("\taverage utilization: " + str(float(sum(QNet.bface[i].utilization))/float(len(QNet.bface[i].utilization)) * 100.0) + "%")
 print(QNet.totalFlow)
