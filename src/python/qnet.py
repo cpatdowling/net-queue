@@ -3,6 +3,9 @@ import numpy as np
 
 class parameters:
     def __init__(self, inFilePath):
+        #accepts a filepath to a parameter file or a dictionary
+        #of parameters directly--these values must be specified
+        #carefully to reflect value types below, i.e. np.array or float
         self.lambd = 1.0
         self.mu = 5.0
         self.renege_rate= 0.0
@@ -15,32 +18,46 @@ class parameters:
         self.paramMap = {"SIMULATION_TIME": "simulation_time", "DELTA_T": "time_resolution",
                          "ARRIVAL_RATE": "lambd", "SERVICE_RATE": "mu", "RENEGE_TIME": "renege_rate",
                          "NUM_SERVERS": "num_spots", "ROAD_NETWORK": "adjacency", "EXOGENOUS_ARRIVALS": "injections"}
-        try:
-            inFile = open(inFilePath, 'r')
-            lines = inFile.readlines()
-            inFile.close()
-            for line in lines:
-                tokens = line.strip().split("=")
-                if line[0] == "#" or line.strip() == "":
-                    pass
-                elif tokens[0].strip() in self.paramMap.keys():
-                    if tokens[0].strip() == "ROAD_NETWORK" or tokens[0].strip() == "INJECTIONS":
-                        arr = np.loadtxt(tokens[1].strip(), dtype=np.dtype(int), delimiter=",")
-                        setattr(self, self.paramMap[tokens[0].strip()], arr)
-                    elif tokens[1].strip()[0] == "/":
-                        #parameter is a filepath
-                        arr = np.loadtxt(tokens[1].strip(), dtype=np.dtype(float), delimiter=",")
-                        setattr(self, self.paramMap[tokens[0].strip()], arr)
-                    else:
-                        setattr(self, self.paramMap[tokens[0].strip()], float(tokens[1].strip()))
-        except Exception as err:
-            print("Could not read parameter file:")
-            print(err)
+        if type(inFilePath) == str:
+            try:
+                inFile = open(inFilePath, 'r')
+                lines = inFile.readlines()
+                inFile.close()
+                for line in lines:
+                    tokens = line.strip().split("=")
+                    if line[0] == "#" or line.strip() == "":
+                        pass
+                    elif tokens[0].strip() in self.paramMap.keys():
+                        if tokens[0].strip() == "ROAD_NETWORK" or tokens[0].strip() == "INJECTIONS":
+                            arr = np.loadtxt(tokens[1].strip(), dtype=np.dtype(int), delimiter=",")
+                            setattr(self, self.paramMap[tokens[0].strip()], arr)
+                        elif tokens[1].strip()[0] == "/":
+                            #parameter is a filepath
+                            arr = np.loadtxt(tokens[1].strip(), dtype=np.dtype(float), delimiter=",")
+                            setattr(self, self.paramMap[tokens[0].strip()], arr)
+                        else:
+                            setattr(self, self.paramMap[tokens[0].strip()], float(tokens[1].strip()))
+            except Exception as err:
+                print("Could not read parameter file:")
+                print(err)
+        else:
+            paramDict = inFilePath
+            for key in paramDict:
+                try:
+                    setattr(self, key, paramDict[key])
+                except:
+                    print("Inputing param dict, key not found: " + key)
+            
+        
+        #reevalute when doing different kinds of blockfaces
         self.blockface_params = [self.lambd, self.mu, self.renege_rate, self.num_spots]
 
 class blockfaceNet:
-    def __init__(self, paramFilePath, stats = []):
-        self.params = parameters(paramFilePath)
+    def __init__(self, paramInstance, stats = []):
+        # I want to create a param instance outside of a blockfaceNet instance
+        #and pass it into blockfaceNet as an argument, that will allow me to edit
+        #the param instance beforehand if looping through values
+        self.params = paramInstance
         self.stats = stats
         self.network = self.params.adjacency
         self.injections = self.params.injections

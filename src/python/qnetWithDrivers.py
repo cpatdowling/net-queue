@@ -15,34 +15,44 @@ class parameters:
         self.paramMap = {"SIMULATION_TIME": "simulation_time", "DELTA_T": "time_resolution",
                          "ARRIVAL_RATE": "lambd", "SERVICE_RATE": "mu", "RENEGE_TIME": "renege_rate",
                          "NUM_SERVERS": "num_spots", "ROAD_NETWORK": "adjacency", "EXOGENOUS_ARRIVALS": "injections"}
-        try:
-            inFile = open(inFilePath, 'r')
-            lines = inFile.readlines()
-            inFile.close()
-            for line in lines:
-                tokens = line.strip().split("=")
-                if line[0] == "#" or line.strip() == "":
-                    pass
-                elif tokens[0].strip() in self.paramMap.keys():
-                    if tokens[0].strip() == "ROAD_NETWORK" or tokens[0].strip() == "INJECTIONS":
-                        arr = np.loadtxt(tokens[1].strip(), dtype=np.dtype(int), delimiter=",")
-                        setattr(self, self.paramMap[tokens[0].strip()], arr)
-                    elif tokens[1].strip()[0] == "/":
-                        #parameter is a filepath
-                        arr = np.loadtxt(tokens[1].strip(), dtype=np.dtype(float), delimiter=",")
-                        setattr(self, self.paramMap[tokens[0].strip()], arr)
-                    else:
-                        setattr(self, self.paramMap[tokens[0].strip()], float(tokens[1].strip()))
-        except Exception as err:
-            print("Could not read parameter file:")
-            print(err)
-        
+        if type(inFilePath) == str:
+            try:
+                inFile = open(inFilePath, 'r')
+                lines = inFile.readlines()
+                inFile.close()
+                for line in lines:
+                    tokens = line.strip().split("=")
+                    if line[0] == "#" or line.strip() == "":
+                        pass
+                    elif tokens[0].strip() in self.paramMap.keys():
+                        if tokens[0].strip() == "ROAD_NETWORK" or tokens[0].strip() == "INJECTIONS":
+                            arr = np.loadtxt(tokens[1].strip(), dtype=np.dtype(int), delimiter=",")
+                            setattr(self, self.paramMap[tokens[0].strip()], arr)
+                        elif tokens[1].strip()[0] == "/":
+                            #parameter is a filepath
+                            arr = np.loadtxt(tokens[1].strip(), dtype=np.dtype(float), delimiter=",")
+                            setattr(self, self.paramMap[tokens[0].strip()], arr)
+                        else:
+                            setattr(self, self.paramMap[tokens[0].strip()], float(tokens[1].strip()))
+            except Exception as err:
+                print("Could not read parameter file:")
+                print(err)
+        else:
+            #just in case I want to input a parameter dictionary directly, though this is probably
+            #not needed anymore
+            paramDict = inFilePath
+            for key in paramDict:
+                try:
+                    setattr(self, key, paramDict[key])
+                except:
+                    print("Inputing param dict, key not found: " + key)
+            
         #reevalute when doing different kinds of blockfaces
         self.blockface_params = [self.lambd, self.mu, self.renege_rate, self.num_spots]
-
+        
 class blockfaceNet:
-    def __init__(self, paramFilePath, stats = []):
-        self.params = parameters(paramFilePath)
+    def __init__(self, paramInstance, stats = []):
+        self.params = paramInstance
         self.stats = stats
         self.network = self.params.adjacency
         self.injections = self.params.injections
@@ -63,7 +73,6 @@ class blockfaceNet:
         
         #list of parking arrays to keep service times synchronized
         self.allSpots = [self.bface[i].spots for i in range(self.network.shape[0])]
-        
         #list of street arrays for people who quit, keep travel times synchronized
         self.streets = {}
         #list of driver arrays for people who quit, to keep track of driver indecies
@@ -90,11 +99,11 @@ class blockfaceNet:
         self.totalFlow = np.zeros(self.network.shape)
         
         #creating index to keep track of drivers
-        #key is i'th car, value is number of blockfaces they've been to
+        #key is i'th car, value is total drive time
         #could do list of blockfaces to follow paths--could sample paths
         self.cars = {}
         self.carIndex = 0
-        #list of car indecies of cars that I'm tracking
+        #list of car indecies of cars that I'm tracking for sampling paths
         self.trackers = []
         
         
@@ -105,7 +114,7 @@ class blockfaceNet:
         self.new_arrivals = self.new_arrivals - self.params.time_resolution
         #countdown on serve times
         self.allSpots = [ (spots - self.params.time_resolution) for spots in self.allSpots ]
-        #countdown on inter blockface arrival
+        #countdown on street drive times
         for origin in self.streets.keys():
             self.streets[origin] = [ list((np.array(dest) - self.params.time_resolution)) for dest in self.streets[origin] ]
         
@@ -140,7 +149,7 @@ class blockfaceNet:
             self.totalFlow[destblock,newBface] += 1
             if len(self.streets[destblock][newBfaceIndex]) > self.params.simulation_time * self.params.lambd * 10:
                 print("shits blowing up")
-                #raise self.overflow
+                #raise self.overflow -- can put a maximum capacity on cars here
             else:
                 self.streets[destblock][newBfaceIndex].append(self.params.drive_time)
                 self.streetsDrivers[destblock][newBfaceIndex].append(carIndex)
