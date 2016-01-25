@@ -1,16 +1,17 @@
 import sys
 import numpy as np
-sys.path.append("/usr/lusers/cdowling/projects/net-queue/src/python")
+sys.path.append("/home/chase/projects/net-queue/src/python")
 from qnetWithDrivers import *
 
+step = float(0.01)
 rates = 80
 utilizationStats = np.zeros((rates,3))
 averageWaitTime = np.zeros((rates,2))
 
-paramsInst = parameters("/usr/lusers/cdowling/projects/net-queue/data/QNetparams.txt")
+paramsInst = parameters("/home/chase/projects/net-queue/src/python/QNetparams.txt")
 
 for jj in range(rates):
-    paramsInst.lambd = paramsInst.lambd + float(jj)/100
+    paramsInst.lambd = paramsInst.lambd + step
     QNet = blockfaceNet(paramsInst, ["utilization"])
     while QNet.timer < QNet.params.simulation_time:
         #find block numbers of blocks with <=0.0 time till next arrival
@@ -55,33 +56,22 @@ for jj in range(rates):
         #step simulation forward and collect any flagged global stats
         QNet.step_time()
 
-for i in QNet.bface.keys():
-    utilizationStats[jj, i+1] = float(sum(QNet.bface[i].utilization))/float(len(QNet.bface[i].utilization))
-"""
-print("\n==Results==")
-for i in QNet.bface.keys():
-    if i in QNet.injection_map.values():
-        print("block number " + str(i) + " (injector):\n\ttotal arrivals: " + str(QNet.bface[i].total))
-        print("\tinjected: " + str(QNet.bface[i].exogenous))
-    else:
-        print("block number " + str(i) + ":\n\ttotal arrivals: " + str(QNet.bface[i].total))
-    print("\tparked: " + str(QNet.bface[i].served))
-    print("\taverage utilization: " + str(float(sum(QNet.bface[i].utilization))/float(len(QNet.bface[i].utilization)) * 100.0) + "%")
-print(QNet.totalFlow)
-"""
+    for i in QNet.bface.keys():
+        utilizationStats[jj, i+1] = float(sum(QNet.bface[i].utilization))/float(len(QNet.bface[i].utilization))
+    #calculate average wait time
+    total = 0.0
+    numCars = float(len(QNet.cars.keys()))
+    for carInd in QNet.cars.keys():
+        total += QNet.cars[carInd].totalDriveTime
+        averageWait = total/numCars
+    averageWaitTime[jj,1] = averageWait
+    utilizationStats[jj,0] = QNet.params.lambd
+    averageWaitTime[jj,0] = QNet.params.lambd
 
-#calculate average wait time
-total = 0.0
-numCars = float(len(QNet.cars.keys()))
-for carInd in QNet.cars.keys():
-    total += QNet.cars[carInd].totalDriveTime
-    averageWait = total/numCars
-averageWaitTime[jj,1] = averageWait
-utilizationStats[jj,0] = QNet.params.lambd
-averageWaitTime[jj,0] = QNet.params.lambd
+avgOut = ("/home/chase/projects/net-queue/data/2bus/averageWait" + str(np.random.randint(1,100000)) + ".txt")
+avgFile = open(avgOut, 'w')
+utilizationOut = ("/home/chase/projects/net-queue/data/2bus/utilization" + str(np.random.randint(1,100000)) + ".txt")
+utilFile = open(utilizationOut, 'w')
 
-avgOut = ("/usr/lusers/cdowling/projects/net-queue/src/python/data/averageWait" + str(np.random.randint(1,100000)) + ".txt")
-utilizationOut = ("/usr/lusers/cdowling/projects/net-queue/src/python/data/utilization" + str(np.random.randint(1,100000)) + ".txt")
-
-np.savetxt(avgOut, averageWaitTime, delimiter=",")
-np.savetxt(utilizationOut, utilizationStats, delimiter=",")
+np.savetxt(avgFile, averageWaitTime, delimiter=",")
+np.savetxt(utilFile, utilizationStats, delimiter=",")
