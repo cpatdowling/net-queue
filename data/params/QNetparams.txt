@@ -1,7 +1,7 @@
 #simulation variables
 SIMULATION_TIME = 1000.0
 DELTA_T = 0.001
-ARRIVAL_RATE = 1.2
+ARRIVAL_RATE = 0.8
 
 #default is 5.0
 SERVICE_RATE = 5.0
@@ -12,8 +12,8 @@ NUM_SERVERS = 5
 
 #At least need these two objects in order to start simulation
 #Adjacency of roads
-ROAD_NETWORK = /home/chase/projects/net-queue/data/3bus/3busnetwork.txt
+ROAD_NETWORK = /usr/lusers/cdowling/projects/net-queue/data/2busnetwork.txt
 #Diagonal indicator matrix of nodes which have their own exogenous arrival rate
 #this matrix effectively "turns on" arrival rate for a blockface specified by 
 #ARRIVAL_RATE parameter
-EXOGENOUS_ARRIVALS = /home/chase/projects/net-queue/data/3bus/3businjections.txt
+EXOGENOUS_ARRIVALS = /usr/lusers/cdowling/projects/net-queue/data/2businjections.txt
