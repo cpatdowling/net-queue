@@ -107,7 +107,7 @@ class blockfaceNet:
         self.trackers = []
         
         
-    def step_time(self):
+    def step_time(self, supress=False):
         self.timer = self.timer + self.params.time_resolution
         
         #countdown on next exogenous arrival
@@ -119,8 +119,11 @@ class blockfaceNet:
             self.streets[origin] = [ list((np.array(dest) - self.params.time_resolution)) for dest in self.streets[origin] ]
         
         #print progress
-        if self.timer % (self.params.simulation_time / 10) <= self.params.time_resolution:
-            print(str(int(self.timer / (self.params.simulation_time/100))) + "% complete")
+        if supress == True:
+            pass
+        else:
+            if self.timer % (self.params.simulation_time / 10) <= self.params.time_resolution:
+                print(str(int(self.timer / (self.params.simulation_time/100))) + "% complete")
             
         if "utilization" in self.stats:
             #update utilization stats
@@ -200,5 +203,3 @@ class car:
         self.renege_times = []
         self.bfacesAttempted = []
         self.totalDriveTime = 0.0
-        
-
