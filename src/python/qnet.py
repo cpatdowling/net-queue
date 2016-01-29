@@ -1,11 +1,7 @@
-import sys
 import numpy as np
 
 class parameters:
     def __init__(self, inFilePath):
-        #accepts a filepath to a parameter file or a dictionary
-        #of parameters directly--these values must be specified
-        #carefully to reflect value types below, i.e. np.array or float
         self.lambd = 1.0
         self.mu = 5.0
         self.renege_rate= 0.0
@@ -41,6 +37,8 @@ class parameters:
                 print("Could not read parameter file:")
                 print(err)
         else:
+            #just in case I want to input a parameter dictionary directly, though this is probably
+            #not needed anymore
             paramDict = inFilePath
             for key in paramDict:
                 try:
@@ -48,15 +46,11 @@ class parameters:
                 except:
                     print("Inputing param dict, key not found: " + key)
             
-        
         #reevalute when doing different kinds of blockfaces
         self.blockface_params = [self.lambd, self.mu, self.renege_rate, self.num_spots]
-
+        
 class blockfaceNet:
     def __init__(self, paramInstance, stats = []):
-        # I want to create a param instance outside of a blockfaceNet instance
-        #and pass it into blockfaceNet as an argument, that will allow me to edit
-        #the param instance beforehand if looping through values
         self.params = paramInstance
         self.stats = stats
         self.network = self.params.adjacency
@@ -79,7 +73,7 @@ class blockfaceNet:
         #list of parking arrays to keep service times synchronized
         self.allSpots = [self.bface[i].spots for i in range(self.network.shape[0])]
         
-        #list of street arrays for people who quit, keep travel times synchronized
+        #these arrays handle street traffic instances
         self.streets = {}
         for origin in range(self.network.shape[0]):
             self.streets[origin] = list()
@@ -93,37 +87,52 @@ class blockfaceNet:
         self.injection_map = {}
         for b in range(len(injection_block_indices)):
             self.injection_map[b] = injection_block_indices[b]
-        self.new_arrivals = np.zeros((1,len(injection_block_indices)))
+        self.new_arrivals = np.zeros(len(injection_block_indices))
         self.timer = 0.0
         
         #for calculating network stats
         #not symmetric, flow assumed to be from row index to column index
         self.totalFlow = np.zeros(self.network.shape)
         
-    def step_time(self):
+        
+        
+        #creating index to keep track of drivers
+        #key is i'th car, value is total drive time
+        #could do list of blockfaces to follow paths--could sample paths
+        self.cars = {}
+        self.carIndex = 0
+        #list of car indecies of cars that I'm tracking for sampling paths
+        self.trackers = []
+        
+        
+    def step_time(self, supress=False):
         self.timer = self.timer + self.params.time_resolution
+        
         #countdown on next exogenous arrival
         self.new_arrivals = self.new_arrivals - self.params.time_resolution
         #countdown on serve times
         self.allSpots = [ (spots - self.params.time_resolution) for spots in self.allSpots ]
-        #countdown on inter blockface arrival
+        #countdown on street drive times
         for origin in self.streets.keys():
-            self.streets[origin] = [ list((np.array(dest) - self.params.time_resolution)) for dest in self.streets[origin] ]
+            self.streets[origin] = [ (self.streets[origin][k][0], self.streets[origin][k][1] - self.time_resolution) for k in range(len(self.streets[origin])) ]
         
         #print progress
-        if self.timer % (self.params.simulation_time / 10) <= self.params.time_resolution:
-            print(str(int(self.timer / (self.params.simulation_time/100))) + "% complete")
+        if supress == True:
+            pass
+        else:
+            if self.timer % (self.params.simulation_time / 10) <= self.params.time_resolution:
+                print(str(int(self.timer / (self.params.simulation_time/100))) + "% complete")
             
         if "utilization" in self.stats:
             #update utilization stats
             #lower time resolution to save time
-            if self.timer % (self.params.simulation_time / 100) <= self.params.time_resolution:
+            if self.timer % (self.params.simulation_time / 10) <= self.params.time_resolution:
                 for block in self.bface.keys():
                     spots = float(self.bface[block].num_parking_spots)
                     parked = float(len([ i for i, x in enumerate(self.allSpots[block]) if x > 0.0 ]))
                     self.bface[block].utilization.append(parked/spots)
     
-    def park(self, destblock):
+    def park(self, destblock, carIndex):
         #attempt to snag parking at a destination blockface
         self.bface[destblock].total += 1
         currently_available_spots = [ j for j, x in enumerate(self.allSpots[destblock]) if x <= self.bface[destblock].renege_rate  ]
@@ -134,14 +143,18 @@ class blockfaceNet:
             self.bface[destblock].served += 1
         else:
             #car moves to different blockface--uniformly sample from neighbors
+            #add travel time to car index total drive time counter
+            self.cars[carIndex].totalDriveTime += self.params.drive_time
             newBface = np.random.choice(self.bface[destblock].neighbors)
             newBfaceIndex = np.where(self.bface[destblock].neighbors == newBface)[0][0]
             self.totalFlow[destblock,newBface] += 1
             if len(self.streets[destblock][newBfaceIndex]) > self.params.simulation_time * self.params.lambd * 10:
                 print("shits blowing up")
-                #raise self.overflow
+                #raise self.overflow -- can put a maximum capacity on cars here
             else:
-                self.streets[destblock][newBfaceIndex].append(self.params.drive_time)
+                self.streets[destblock][newBfaceIndex].append((carIndex, self.params.drive_time))
+                #resort the list, since drive times change due to traffic
+                self.streets[destblock][newBfaceIndex].sort(key = lambda t: t[1])
     
     def overflow(Exception):
         print("\n==Exception==")
@@ -177,14 +190,17 @@ class streetlane:
         #index is (origin, dest) wrt whole newtork
         self.index = index
         self.weight = False
-        #countdown timer for arriving traffic at next blockface
+        #driver index and countdown timer tuple for arriving traffic at next blockface
         self.traffic = []
+        
+    def get_travel_time(self, index)
 
 class car:
-    def __init__(self, service_time, renege_time):
+    def __init__(self, index, tracker=False):
         #use this to keep track of individual parkers
-        #probably gonna slow stuff down pretty quick
-        self.service_time = service_time
-        self.renege_time = renege_time
+        self.index = index
+        self.trackStatus = tracker
+        self.service_times = []
+        self.renege_times = []
         self.bfacesAttempted = []
-
+        self.totalDriveTime = 0.0
