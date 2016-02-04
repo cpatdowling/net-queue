@@ -16,4 +16,4 @@ ROAD_NETWORK = /usr/lusers/cdowling/projects/net-queue/data/params/4busnetwork.t
 #Diagonal indicator matrix of nodes which have their own exogenous arrival rate
 #this matrix effectively "turns on" arrival rate for a blockface specified by 
 #ARRIVAL_RATE parameter
-EXOGENOUS_ARRIVALS = /usr/lusers/cdowling/projects/net-queue/data/params/4businjections.txt
+EXOGENOUS_ARRIVALS = /usr/lusers/cdowling/projects/net-queue/data/params/4bus-2injections.txt

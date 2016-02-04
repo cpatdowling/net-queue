@@ -12,8 +12,8 @@ NUM_SERVERS = 5
 
 #At least need these two objects in order to start simulation
 #Adjacency of roads
-ROAD_NETWORK = /usr/lusers/cdowling/projects/net-queue/data/params/4busnetwork.txt
+ROAD_NETWORK = /usr/lusers/cdowling/projects/net-queue/data/params/4busnetworkweird.txt
 #Diagonal indicator matrix of nodes which have their own exogenous arrival rate
 #this matrix effectively "turns on" arrival rate for a blockface specified by 
 #ARRIVAL_RATE parameter
-EXOGENOUS_ARRIVALS = /usr/lusers/cdowling/projects/net-queue/data/params/4businjections.txt
+EXOGENOUS_ARRIVALS = /usr/lusers/cdowling/projects/net-queue/data/params/4businjectionsweird.txt
