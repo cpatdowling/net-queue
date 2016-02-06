@@ -1,0 +1,45 @@
+\documentclass[]{article}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+
+%opening
+\title{Notes on Jackson-like queue networks}
+\author{Chase Dowling}
+
+\begin{document}
+
+\maketitle
+
+\section{Notation}
+
+Graph $G = (V,E)$, adjacency $A$, $n \times n$, in number of vertices. For vertices $i,j \in V$, we say $i$ is connected to $j$, $i\sim j$ if the ordered pair $(i,j) \in E$. Directionality is implied by the ordering.
+
+\section{Jackson Networks}
+
+A Jackson Network is a network of queues where exogenous jobs arrive according to a Poisson process (exponential interarrival) with rate $\lambda > 0$.  For a job completed at vertex $i$, jobs are routed to vertex $j$ with some probability. For vertices $j\sim i$, jobs move onto another vertex probability $\sum_{j} p_{ij}$ or leave the network with probability $1 - \sum_{j} p_{ij}$. 
+
+The overall arrival rate at a vertex $i$, $\lambda_i$ becomes:
+
+\[\lambda_i = \lambda p_{0i} + \sum_{j=1} \lambda_i p_{ji}\]
+
+for $(j,i) \in E$, and $p_{0i}$ equal to the probability that an exogenous job arrives at $i$ first. Additionally, $p_{i0}$ is equal to the probability that a job item has left the network. The 0'th vertex acts as both source and sink--this is referred to as an \emph{open} Jackson network.
+
+\section{Special Case}
+
+We wish to examine a special case where if the queue at a vertex $i$ is full, a job is automatically rerouted to another queue. Once a job reaches the first available queue and the task is completed, the job leaves the network. Each queue in the network is an G/M/n/n queue. Note that although a vertex's exogenous arrivals may be Poissonian, it is not the case that the combination of inter-vertex arrivals plus exogenous arrivals is also Poissonian. 
+
+Consider such a network of $k$ queues with uniform service rate $\mu$ and exogenous arrival rate $\lambda$. We can immediately observe that the expected number of tasks that have exited the system at time $t$ is bounded above by $(kn) \mu t$ (best possible service rate). The number of tasks within the system is at least $(\lambda - \mu)t$. How do I know all of this is true?
+
+Def'n: Call a directed acyclic graph a chain if the first and last vertex has degree 1, all others have degree 2. The longest path in the chain is the graph itself.
+
+Observe that a chain of queues with $p_01$ = 1, the steady state behavior of a chain of $k$ M/M/1 queues is equivalent to an M/M/k queue with capacity $k$. 
+
+Claim: A tree of $k$ M/M/1 queues steady state service rate is bounded above by that of an M/M/n queue where $n$ is the length of the longest chain in the tree.
+
+Proof: Moving down the tree of available queues cuts off branches of potentially available queues, congestion at root nodes causes the bounding behavior. How bad?
+
+\section{Similarities to Jackson network}
+
+
+
+\end{document}
