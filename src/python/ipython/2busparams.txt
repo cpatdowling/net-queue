@@ -1,0 +1,14 @@
+#Parameters passed filepaths are assumed to find matrices
+#must be fully qualified paths
+
+#Global Parameters
+SIMULATION_TIME = 1000.0
+TIME_RESOLUTION = 0.001
+DRIVE_TIME = 1.0
+
+#Network Parameters
+EXOGENOUS_RATE = 1.2
+SERVICE_RATE = 1.0
+ROAD_NETWORK = /home/chase/projects/net-queue/src/python/ipython/2busnetwork.txt
+NUM_SPOTS = 1.0
+RENEGE_TIME = 0.0

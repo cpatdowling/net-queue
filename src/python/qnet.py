@@ -114,7 +114,9 @@ class blockfaceNet:
         self.allSpots = [ (spots - self.params.time_resolution) for spots in self.allSpots ]
         #countdown on street drive times
         for origin in self.streets.keys():
-            self.streets[origin] = [ (self.streets[origin][k][0], self.streets[origin][k][1] - self.time_resolution) for k in range(len(self.streets[origin])) ]
+            print self.streets
+            #not returning list of of street zipped lists
+            self.streets[origin] = [ (self.streets[origin][k][0], self.streets[origin][k][1] - self.time_resolution) for k in range(len(self.streets[origin])) if len(self.streets[origin][k]) > 0 ]
         
         #print progress
         if supress == True:
@@ -186,14 +188,24 @@ class blockface:
 
             
 class streetlane:
-    def __init__(self, index):
+    def __init__(self, index, min_travel=1.0, max_travel=100.0):
         #index is (origin, dest) wrt whole newtork
         self.index = index
         self.weight = False
+        #this is where I'll put some sort of parameters for the get_travel_time function below
+        self.capacity = False
+        self.min_travel_time = min_travel
+        self.max_travel_time = max_travel
         #driver index and countdown timer tuple for arriving traffic at next blockface
         self.traffic = []
         
-    def get_travel_time(self, index)
+    def get_travel_time(self, index):
+        travelTime = self.min_travel_time
+        if len(self.traffic) > 10 and len(self.traffic) < 1000:
+           travelTime += 0.1 * len(self.traffic)
+        else:
+            travelTime = self.max_travel_time
+        return(travelTime)
 
 class car:
     def __init__(self, index, tracker=False):
