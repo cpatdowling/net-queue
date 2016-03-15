@@ -24,21 +24,128 @@ The overall arrival rate at a vertex $i$, $\lambda_i$ becomes:
 
 for $(j,i) \in E$, and $p_{0i}$ equal to the probability that an exogenous job arrives at $i$ first. Additionally, $p_{i0}$ is equal to the probability that a job item has left the network. The 0'th vertex acts as both source and sink--this is referred to as an \emph{open} Jackson network.
 
-\section{Special Case}
+\section{Parking Garage Problem}
 
-We wish to examine a special case where if the queue at a vertex $i$ is full, a job is automatically rerouted to another queue. Once a job reaches the first available queue and the task is completed, the job leaves the network. Each queue in the network is an G/M/n/n queue. Note that although a vertex's exogenous arrivals may be Poissonian, it is not the case that the combination of inter-vertex arrivals plus exogenous arrivals is also Poissonian. 
+Consider an $M/M/1/1$ queue with Poisson arrival $\lambda$ and service rate $\mu$ (representative of a blockface with 1 parking space). If the single server is busy, any new arrival is automatically rejected (and elect to park in a parking garage). We can observe this is a birth-death process with two states for the queue: busy or idle. Denote these states as either $X_0$ or $X_1$.
 
-Consider such a network of $k$ queues with uniform service rate $\mu$ and exogenous arrival rate $\lambda$. We can immediately observe that the expected number of tasks that have exited the system at time $t$ is bounded above by $(kn) \mu t$ (best possible service rate). The number of tasks within the system is at least $(\lambda - \mu)t$. How do I know all of this is true?
+We wish to obtain the transition probabilities for this continuous time Markov Chain for which all states communicate. Using the Kolmogorov Backwards Equations, we obtain the following system of differential equations:
 
-Def'n: Call a directed acyclic graph a chain if the first and last vertex has degree 1, all others have degree 2. The longest path in the chain is the graph itself.
+\begin{equation}
+p'_{00} = \lambda p_{10}(t) - \lambda p_{00}(t) ]
+\end{equation}
+\begin{equation}
+p'_{10} = \mu p_{00}(t) - \mu p_{10}(t)
+\end{equation}
 
-Observe that a chain of queues with $p_01$ = 1, the steady state behavior of a chain of $k$ M/M/1 queues is equivalent to an M/M/k queue with capacity $k$. 
+Multiplying (1) by $\mu$, (2) by $\lambda$, adding, and integrating the resulting equation we obtain:
 
-Claim: A tree of $k$ M/M/1 queues steady state service rate is bounded above by that of an M/M/n queue where $n$ is the length of the longest chain in the tree.
+\begin{equation}
+\mu p_{00}(t) + \lambda p_{10}(t) = c
+\end{equation}
 
-Proof: Moving down the tree of available queues cuts off branches of potentially available queues, congestion at root nodes causes the bounding behavior. How bad?
+To solve for the constant of integration, we assume the initial condition that $p_{00}(0) = 1$, thus $p_{10}(0) = 0$, and $c = \mu$. Substituting (3) into (1):
 
-\section{Similarities to Jackson network}
+\begin{equation}
+p'_{00}(t) = \mu - (\mu + \lambda) p_00(t)
+\end{equation}
+
+Let $h(t) = p_00(t) - \frac{\mu}{\mu + \lambda}$. Then $h'(t) = p'_{00}(t) = -(\lambda + \mu)h(t)$
+
+\begin{align}
+\frac{h'(t)}{h(t)} &=\,\, -(\mu + \lambda) \\
+\int \frac{h'(t)}{h(t)} &=\,\, \int -(\mu + \lambda) dt \\
+log \,\, h(t) &=\,\, -(\mu + \lambda)t + c \\
+h(t) &=\,\, k e^{-(\mu + \lambda)t} \\
+p_{00}(t) &=\,\, k e^{-(\mu + \lambda)t} + \frac{\mu}{\lambda + \mu} \\
+\end{align}
+
+Using $p_{00}(0) = 1$, $k = \frac{\lambda}{\mu + \lambda}$, therefore
+
+\begin{equation}
+p_{00}(t)  = \frac{\lambda}{\mu+\lambda} e^{-(\mu + \lambda)t} + \frac{\mu}{\mu + \lambda}
+\end{equation}
+\begin{equation}
+p_{01}(t) = (1 - p_{00}(t))
+\end{equation}
+
+What is the distribution of $P_{01}$ and $P_{10}$? Is the expectation of the convolution to the expected transit time for vehicle?
+
+\section{Recovering Steady State}
+
+Burke's theorem states that for such an M/M/1 queue in the steady state with arrivals a Poisson process with rate $\lambda$, the departure process is also a Poisson process with rate $\lambda$. To evaluate the validity of this claim for a finite state birth-death process, we must determine the limiting probabilities from the above section. The existence of the limiting probabilities requires the assumptions
+
+\begin{itemize}
+\item[a]all states of the Markov chain communicate
+\item[b]the expected time to return to any state is finite
+\end{itemize}
+
+(a) is already true by assumption, and (b) is true for finite service rates and all reasonable distributions of $P_{01}$ and $P_{10}$.
+
+\begin{equation}
+P_j := \lim_{t \rightarrow \infty} p_{ij}(t)
+\end{equation}
+
+Consider the Kolmogorov Forward Equations in the limit:
+
+\[p'_{ij}(t) = \sum_{k \neq j} q_{kj} p_{ik}(t) - v_{j}p_{ij}(t) \]
+
+\[\lim_{t \rightarrow \infty} p'_{ij}(t) = \lim_{t \rightarrow \infty} \sum_{k \neq j} q_{kj} p_{ik}(t) - v_{j}p_{ij}(t) \]
+
+If (7) converges, then $\lim_{t \rightarrow \infty} p'_{ij}(t)$ must converge to 0, so:
+
+\[0 = \sum_{k \neq j} q_{kj} P_k - v_{j}P_j \]
+
+Up to this point no assumptions are made about the nature of the distributions of the $p_{ij}$'s
+
+For any birth-death process with exit rates $\lambda_i$, enter rates $\mu_i$, assuming the limiting probabilities exist, solving for the sum of the balance equations in terms of $P_{0}$
+
+\begin{equation}
+1 = P_0 + P_0 \sum_{i=0}^{n} \frac{\lambda_{i-1} \ldots \lambda_{0}}{\mu_i \ldots \mu_0}
+\end{equation}
+
+The necessary and sufficient condition then for the existence of the limiting probabilities is that the sum in (8) is bounded. For finite states $n$ this is true for reasonable values of $\lambda < \infty$ and $\mu > 0$. For infinite states, $\lambda < \mu$ is also required. In our simple, 2-state case, we have that:
+
+\begin{equation}
+P_0 = \frac{1}{1 + \lambda/\mu} 
+\end{equation}
+\begin{equation}
+P_1 = \frac{\lambda/\mu}{1 + \lambda/\mu}
+\end{equation}
+
+In the limiting case, we can recover the number of vehicles then served, and therefore, the number of vehicles rejected and sent to a parking garage.
+
+\section{Rejection}
+
+We're ultimately concerned with the expected time between cars being sent to a parking garage. As $\lambda >> \mu$, $P_1 \rightarrow 1$, w.r.t. the aim of determining traffic flow between queues based on rejection.
+
+Let the inter arrival times $_i$ be exponentially distributed with parameter $\lambda$, $S(t)$ be the corresponding Poisson arrival process, and let $E[R] :=$ \emph{expected time between rejections}. Because arrivals are independent of the state of queue, we can observe that $E[R|queue full] = 1/\lambda$.
+
+\begin{align}
+E[R] &= \int_0^{\infty} E[R | S(t_0) = 1] S(t) dt \\
+\, &= \int_0^{\infty}E[R | S(t_0) = 1, X(t_0) = X_0] P_0(t) S(t) dt + \int_0^{\infty}E[R | S(t_0) = 1, X(t_0) = X_1] P_1(t) S(t) dt \\
+\, &= (\frac{1}{\lambda} + E[R])P_0 + \frac{1}{\lambda} P_1 \\
+\, &= \frac{1}{\lambda} P_0 + \frac{1}{\lambda} P_1 + P_0 E[R] \\
+E[R](1 - P_0) &=  \frac{1}{\lambda} P_0 + \frac{1}{\lambda} (1 - P_0) \\
+E[R] &= \frac{1}{\lambda}\frac{1}{1- P_0} \\
+\, &= \frac{\mu + \lambda}{\lambda^2}
+\end{align} 
+
+
+%\section{Special Case}
+
+%We wish to examine a special case where if the queue at a vertex $i$ is full, a job is automatically rerouted to another queue. Once a job reaches the first available queue and the task is completed, the job leaves the network. Each queue in the network is an G/M/n/n queue. Note that although a vertex's exogenous arrivals may be Poissonian, it is not the case that the combination of inter-vertex arrivals plus exogenous arrivals is also Poissonian. 
+
+%Consider such a network of $k$ queues with uniform service rate $\mu$ and exogenous arrival rate $\lambda$. We can immediately observe that the expected number of tasks that have exited the system at time $t$ is bounded above by $(kn) \mu t$ (best possible service rate). The number of tasks within the system is at least $(\lambda - \mu)t$. How do I know all of this is true?
+
+%Def'n: Call a directed acyclic graph a chain if the first and last vertex has degree 1, all others have degree 2. The longest path in the chain is the graph itself.
+
+%Observe that a chain of queues with $p_01$ = 1, the steady state behavior of a chain of $k$ M/M/1 queues is equivalent to an M/M/k queue with capacity $k$. 
+
+%Claim: A tree of $k$ M/M/1 queues steady state service rate is bounded above by that of an M/M/n queue where $n$ is the length of the longest chain in the tree.
+
+%Proof: Moving down the tree of available queues cuts off branches of potentially available queues, congestion at root nodes causes the bounding behavior. How bad?
+
+%\section{Similarities to Jackson network}
 
 
 

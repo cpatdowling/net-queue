@@ -10,7 +10,7 @@ class parameters:
         #Network parameters
         self.EXOGENOUS_RATE = 1.5 
         self.SERVICE_RATE = 5.0
-        self.RENEGE_TIME = 1.0
+        self.RENEGE_TIME = 0.0
         self.NUM_SPOTS = 5
         #If param file passes single float, float is diagonalized across a network
         #matrix--not efficient use of memory but helps with later steady state computation
@@ -39,7 +39,7 @@ class parameters:
             print(err)
        
 class blockface:
-    def __init__(self, index=False, lambd=1.0, mu=2.0, renege=.5, num_spots=5):
+    def __init__(self, index=False, lambd=1.0, mu=2.0, renege=0.0, num_spots=5):
         self.i = index
         self.arrival_rate = lambd
         self.service_rate = mu
@@ -55,6 +55,7 @@ class blockface:
         self.served = 0
         self.avg_park_time = 0.0
         self.utilization = []
+        self.queue_length = []
 
 class street:
     def __init__(self, index, min_travel=1.0, max_travel=100.0):
@@ -68,12 +69,15 @@ class street:
         #driver index and countdown timer tuple for arriving traffic at next blockface
         self.traffic = []
         
-    def get_travel_time(self, block):
-        travelTime = self.min_travel_time
-        if len(self.traffic) > block.num_parking_spots and len(self.traffic) < self.max_travel_time - block.num_parking_spots:
-            travelTime += len(self.traffic)
-        elif len(self.traffic) > block.num_parking_spots:
-            travelTime = self.max_travel_time
+    def get_travel_time(self, block, fixed=False):
+        if fixed != False:
+            travelTime = fixed
+        else:
+            travelTime = self.min_travel_time
+            if len(self.traffic) > block.num_parking_spots and len(self.traffic) < self.max_travel_time - block.num_parking_spots:
+                travelTime += len(self.traffic)
+            elif len(self.traffic) > block.num_parking_spots:
+                travelTime = self.max_travel_time
         return(travelTime)
         
 class car:
@@ -146,11 +150,22 @@ class blockfaceNet:
                 print(str(int(self.timer / (self.params.SIMULATION_TIME/100))) + "% complete")
             
         if "utilization" in self.stats:
-            if self.timer % (self.params.SIMULATION_TIME / 10) <= self.params.TIME_RESOLUTION:
+            if self.timer % (self.params.SIMULATION_TIME / 100) <= self.params.TIME_RESOLUTION:
                 for block in self.bface.keys():
                     spots = float(self.bface[block].num_parking_spots)
-                    parked = float(len([ i for i, x in enumerate(self.all_spots[block]) if x > 0.0 ]))
+                    parked = float(len([ i for i, x in enumerate(self.all_spots[block]) if x > -1 * self.params.TIME_RESOLUTION ]))
                     self.bface[block].utilization.append(parked/spots)
+                    
+        if "queue-length" in self.stats:
+            if self.timer % (self.params.SIMULATION_TIME / 100) <= self.params.TIME_RESOLUTION:
+                for block in self.streets.keys():
+                    #incoming streets
+                    num_streets = float(len(self.streets[block]))
+                    total = 0.0
+                    for strt in self.streets[block]:
+                        total += float(len(strt))
+                    avg_length = total/num_streets
+                    self.bface[block].queue_length.append(avg_length)
             
     def park(self, block, carIndex):
         self.bface[block].total += 1
@@ -163,7 +178,8 @@ class blockfaceNet:
             newDest = self.bface[block].neighbors[np.random.choice([ i for i in range(len(self.bface[block].neighbors)) ])]
             newBface = newDest[1]
             newBfaceIndex = newDest[0]
-            drive_time = self.bface[block].neighbor_streets[newBfaceIndex].get_travel_time(self.bface[newBface])
+            #fixed travel time is on
+            drive_time = self.bface[block].neighbor_streets[newBfaceIndex].get_travel_time(self.bface[newBface], fixed=self.params.DRIVE_TIME)
             self.cars[carIndex].total_drive_time += drive_time
             self.total_flow[block, newBface] += 1
             self.streets[block][newBfaceIndex].append((carIndex, drive_time))
