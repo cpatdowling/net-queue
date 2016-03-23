@@ -7,7 +7,7 @@ DRIVE_TIME = 10.0
 
 #Network Parameters
 ROAD_NETWORK = /home/chase/projects/net-queue/data/params/ex1-busnetwork.txt
-EXOGENOUS_RATE = 4.25
+EXOGENOUS_RATE = 4.5
 SERVICE_RATE = 120.0
 NUM_SPOTS = 10
 RENEGE_TIME = 0.0
