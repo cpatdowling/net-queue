@@ -28,3 +28,5 @@ Example network queue simulation:
 	-Navigate to $working-path$/net-queue/src/python or add net-queue/python/src/qnet to your python path
 	
 	-python 3bus.py $your-working-path$/net-queue/data/params/ex1-busparams.txt
+	
+	-parking game strategy for this example comes from table 1, On-Street vs Off-Street parking example 1, type SO (socially optimal equillibrium)
