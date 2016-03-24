@@ -23,7 +23,7 @@ Contents:
     		
 Example network queue simulation:
 
-	-Edit ex1-busparams.txt: "ROAD_NETWORK = $your-working-path$/net-queue/data/params/ex1-busnetwork.txt"
+	-Edit net-queue/data/params/ex1-busparams.txt: "ROAD_NETWORK = $your-working-path$/net-queue/data/params/ex1-busnetwork.txt"
 	
 	-Navigate to $working-path$/net-queue/src/python or add net-queue/python/src/qnet to your python path
 	
