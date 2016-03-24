@@ -6,7 +6,7 @@ Requirements:
 	
 	-Python 2.7+ or 3.0.1+
 	
-	-Tested in Python 2.7+ on Ubuntu 14.03
+	-Tested in Python 2.7.6 on Ubuntu 14.04
 	
 	-NumPy and SciPy for Python 2.7+
 
