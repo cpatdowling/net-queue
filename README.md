@@ -8,7 +8,7 @@ Requirements:
 	
 	-Tested in Python 2.7.6 on Ubuntu 14.04
 	
-	-NumPy and SciPy for Python 2.7+
+	-NumPy for Python 2.7+
 
 Contents:
 	
