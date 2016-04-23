@@ -111,3 +111,5 @@ print("\tTotal traffic flow: \n" + str(QNet.total_flow) + "\n\n")
 print("Blockface stats:\n")
 for i in range(len(QNet.bface.keys())):
     print("\tBlockface " + str(i+1) + " utilization: " + str(utilizationStats[0, i]))
+
+
