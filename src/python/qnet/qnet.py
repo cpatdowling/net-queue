@@ -17,7 +17,7 @@ class parameters:
         self.NUM_SPOTS = 5
         #If param file passes single float, float is diagonalized across a network
         #matrix--not efficient use of memory but helps with later steady state computation
-        self.diagonalize = ["EXOGENOUS_RATE", "SERVICE_RATE", "RENEGE_TIME", "NUM_SPOTS", "GARAGE_NETWORK"]
+        self.diagonalize = ["EXOGENOUS_RATE", "SERVICE_RATE", "RENEGE_TIME", "NUM_SPOTS"]
         
         self.ROAD_NETWORK = ""
         self.GARAGE_NETWORK = ""
@@ -41,6 +41,9 @@ class parameters:
         except Exception as err:
             print("Could not read parameter file.")
             print(err)
+
+        if self.GARAGE_NETWORK == "":
+            self.GARAGE_NETWORK = np.zeros(self.ROAD_NETWORK.shape)
        
 class blockface:
     def __init__(self, index=False, lambd=1.0, mu=2.0, renege=0.0, num_spots=5, garage = False):
