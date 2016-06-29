@@ -186,7 +186,7 @@ class blockfaceNet:
                         print(self.bface[block].num_parking_spots)
                     
         if "queue-length" in self.stats:
-            if self.timer % (self.params.SIMULATION_TIME / 100) <= self.params.TIME_RESOLUTION:
+            if self.timer % (self.params.SIMULATION_TIME / 100) <= 0.0:
                 for block in self.streets.keys():
                     #incoming streets
                     num_streets = float(len(self.streets[block]))
@@ -198,7 +198,9 @@ class blockfaceNet:
             
     def park(self, block, carIndex):
         self.bface[block].total += 1
-        available_spots = [ j for j, x in enumerate(self.all_spots[block]) if x <= self.bface[block].renege_rate + self.params.TIME_RESOLUTION ]
+        #no wait time at a block for the moment
+        #available_spots = [ j for j, x in enumerate(self.all_spots[block]) if x <= self.bface[block].renege_rate + self.params.TIME_RESOLUTION ]
+        available_spots = [ j for j, x in enumerate(self.all_spots[block]) if x <= 0.0 ]
         garageProb = np.random.uniform(0,1)
         if self.bface[block].garage == True and garageProb < self.params.GARAGE_PROB:
             self.bface[block].parking_garage_rejects += 1
@@ -227,4 +229,5 @@ class blockfaceNet:
                     self.streets[block][newBfaceIndex].append((carIndex, drive_time))
                     self.streets[block][newBfaceIndex].sort(key = lambda t: t[1])
             except Exception as err:
+                print("isolated reject error at blockface " + str(block))
                 self.bface[block].isolated_rejects += 1
