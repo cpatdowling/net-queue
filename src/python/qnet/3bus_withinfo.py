@@ -76,17 +76,16 @@ while QNet.timer < QNet.params.SIMULATION_TIME:
             next_arrival_time = np.random.exponential(QNet.bface[blockindex].arrival_rate)
             QNet.new_arrival_timer[0] = next_arrival_time 
             
-        for origin in QNet.bface.keys():
-            for dest in range(len(QNet.bface[origin].neighbors)):
-	            destblock = QNet.bface[origin].neighbors[dest][1]
-	            if len(QNet.streets[origin][dest]) > 0 and QNet.streets[origin][dest][0][1] < QNet.params.TIME_RESOLUTION:       
-	                for driver in QNet.streets[origin][dest]:
-		                while QNet.streets[origin][dest][0][1] < QNet.params.TIME_RESOLUTION:
-		                    carIndex = QNet.streets[origin][dest][0][0]
-		                    QNet.park(destblock, carIndex)
-		                    QNet.streets[origin][dest].pop(0)
-		                    if len(QNet.streets[origin][dest]) == 0:
-			                    break
+    for origin in QNet.bface.keys():
+        for dest in range(len(QNet.bface[origin].neighbors)):
+	        destblock = QNet.bface[origin].neighbors[dest][1]
+	        if len(QNet.streets[origin][dest]) > 0 and QNet.streets[origin][dest][0][1] < QNet.params.TIME_RESOLUTION:       
+		        while QNet.streets[origin][dest][0][1] < QNet.params.TIME_RESOLUTION:
+		            carIndex = QNet.streets[origin][dest][0][0]
+		            QNet.park(destblock, carIndex)
+		            QNet.streets[origin][dest].pop(0)
+		            if len(QNet.streets[origin][dest]) == 0:
+			            break
     QNet.step_time()
     
 #calculate network statistics

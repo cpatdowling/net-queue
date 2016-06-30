@@ -160,7 +160,8 @@ class blockfaceNet:
                 if len(self.streets[origin][street]) > 0:
                     self.streets[origin][street] = [ (self.streets[origin][street][k][0], self.streets[origin][street][k][1] - self.params.TIME_RESOLUTION) for k in range(len(self.streets[origin][street])) ]
                 else:
-                    self.streets[origin][street] = list()
+                    #self.streets[origin][street] = list()
+                    pass
         #print progress
         if supress == True:
             pass
@@ -174,19 +175,9 @@ class blockfaceNet:
                     spots = float(self.bface[block].num_parking_spots)
                     parked = float(len([ i for i, x in enumerate(self.all_spots[block]) if x >  self.params.TIME_RESOLUTION ]))
                     self.bface[block].utilization.append(parked/spots)
-                    if parked/spots > 1.0:
-                        print("\n\n")
-                        print("bface[block].spots")
-                        print(self.bface[block].spots)
-                        print("all_spots[block]")
-                        print(self.all_spots[block])
-                        print("num parked")
-                        print(parked)
-                        print("bface[block].num_parking_spots")
-                        print(self.bface[block].num_parking_spots)
-                    
+        
         if "queue-length" in self.stats:
-            if self.timer % (self.params.SIMULATION_TIME / 100) <= 0.0:
+            if self.timer % (self.params.SIMULATION_TIME / 100) <= self.params.TIME_RESOLUTION:
                 for block in self.streets.keys():
                     #incoming streets
                     num_streets = float(len(self.streets[block]))
@@ -200,7 +191,7 @@ class blockfaceNet:
         self.bface[block].total += 1
         #no wait time at a block for the moment
         #available_spots = [ j for j, x in enumerate(self.all_spots[block]) if x <= self.bface[block].renege_rate + self.params.TIME_RESOLUTION ]
-        available_spots = [ j for j, x in enumerate(self.all_spots[block]) if x <= 0.0 ]
+        available_spots = [ j for j, x in enumerate(self.all_spots[block]) if x <= self.params.TIME_RESOLUTION ]
         garageProb = np.random.uniform(0,1)
         if self.bface[block].garage == True and garageProb < self.params.GARAGE_PROB:
             self.bface[block].parking_garage_rejects += 1
