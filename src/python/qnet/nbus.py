@@ -34,7 +34,7 @@ while QNet.timer < QNet.params.SIMULATION_TIME:
 		            QNet.streets[origin][dest].pop(0)
 		            if len(QNet.streets[origin][dest]) == 0:
 			            break
-    QNet.step_time(supress=True)
+    QNet.step_time(supress=False)
     
 #calculate network statistics
 utilizationStats = np.zeros((1,len(QNet.bface.keys())))

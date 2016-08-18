@@ -3,6 +3,7 @@ import os
 from qnet import *
 
 paramFilePath = sys.argv[1]
+saveDir = sys.argv[2]
 params = parameters(paramFilePath)
 
 #initialize network
@@ -48,7 +49,7 @@ for carInd in QNet.cars.keys():
 averageWait = total/numCars
 
 #Write
-np.savetxt("/home/chase/projects/quals/data/vanilla/utilization" + str(np.random.randint(1,100000)) + ".txt", utilizationStats, delimiter=",")
+np.savetxt(saveDir + "/traffic_total_flow_" + str(np.random.randint(1,100000)) + ".txt", QNet.total_flow, delimiter=",")
 
 """        
 #Print network statistics    

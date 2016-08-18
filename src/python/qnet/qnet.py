@@ -3,7 +3,7 @@ import numpy as np
 class parameters:
     def __init__(self, inFilePath):
         #Global parameters
-        self.SIMULATION_TIME = 1000
+        self.SIMULATION_TIME = 1000.0
         self.TIME_RESOLUTION = 0.001
         self.DRIVE_TIME = 1.0
         self.BLOCKS_BEFORE_QUIT = 0.0
@@ -82,10 +82,13 @@ class street:
         #driver index and countdown timer tuple for arriving traffic at next blockface
         self.traffic = []
         
-    def get_travel_time(self, block, fixed=False):
-        if fixed != False:
-            travelTime = fixed
-        else:
+    def get_travel_time(self, block, dist="fixed", val=1.0):
+        #want to reference parameter class
+        if dist=="fixed":
+            travelTime = val
+        elif dist=="exponential":
+            travelTime = np.random.exponential(val)
+        elif dist=="interval":
             travelTime = self.min_travel_time
             if len(self.traffic) > block.num_parking_spots and len(self.traffic) < self.max_travel_time - block.num_parking_spots:
                 travelTime += len(self.traffic)
@@ -204,8 +207,7 @@ class blockfaceNet:
                 newDest = self.bface[block].neighbors[np.random.choice([ i for i in range(len(self.bface[block].neighbors)) ])]
                 newBface = newDest[1]
                 newBfaceIndex = newDest[0]
-                #fixed travel time is on
-                drive_time = self.bface[block].neighbor_streets[newBfaceIndex].get_travel_time(self.bface[newBface], fixed=self.params.DRIVE_TIME)
+                drive_time = self.bface[block].neighbor_streets[newBfaceIndex].get_travel_time(self.bface[newBface], dist="exponential", val = self.params.DRIVE_TIME)
                 if self.params.BLOCKS_BEFORE_QUIT != 0.0:
                     if self.cars[carIndex].total_drive_time > self.params.BLOCKS_BEFORE_QUIT * self.params.DRIVE_TIME:
                         self.bface[block].parking_garage_rejects += 1
@@ -221,4 +223,5 @@ class blockfaceNet:
                     self.streets[block][newBfaceIndex].sort(key = lambda t: t[1])
             except Exception as err:
                 print("isolated reject error at blockface " + str(block))
+                print(err)
                 self.bface[block].isolated_rejects += 1
