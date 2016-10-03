@@ -4,10 +4,11 @@ from qnet import *
 
 paramFilePath = sys.argv[1]
 saveDir = sys.argv[2]
-params = parameters(paramFilePath)
+params = parameters()
+params.read(paramFilePath)
 
 #initialize network
-QNet = blockfaceNet(params, stats=["utilization"])
+QNet = blockfaceNet(params, stats=["utilization", "traffic", "rejection"])
 
 total_arrivals = 0
   
@@ -35,12 +36,32 @@ while QNet.timer < QNet.params.SIMULATION_TIME:
 		            QNet.streets[origin][dest].pop(0)
 		            if len(QNet.streets[origin][dest]) == 0:
 			            break
-    QNet.step_time(supress=True)
+    QNet.step_time(supress=True, debug=False)
     
 #calculate network statistics
 utilizationStats = np.zeros((1,len(QNet.bface.keys())))
+avgInterRejection = np.zeros((1, len(QNet.bface.keys())))
 for i in QNet.bface.keys():
         utilizationStats[0, i] = float(sum(QNet.bface[i].utilization))/float(len(QNet.bface[i].utilization))
+        try:
+            avgInterRejection[0, i] = float(sum(QNet.bface[i].inter_reject_times))/float(len(QNet.bface[i].inter_reject_times))
+        except:
+            avgInterRejection[0, i] = 0.0
+        
+#colate street traffic stats
+#this is super fuckin hacky, damn streets, need to make blocks and streets the same
+#queue class and then just instantiate them accordingly, access all information for
+#a block or a street from their class instance
+num_streets = 0
+for origin in range(len(QNet.streets_traffic.keys())):
+    for dest in range(len(QNet.streets_traffic[origin])):
+        num_streets += 1
+trafficStats = np.zeros((len(QNet.clock), 1+num_streets))
+for t in range(len(QNet.clock)):
+    trafficStats[t, 0] = QNet.clock[t]
+    for j in range(len(QNet.streets_traffic.keys())):
+        for k in range(len(QNet.streets_traffic[j])):
+            trafficStats[t, j+k+1] = QNet.streets_traffic[j][k][t]
 
 total = 0.0
 numCars = float(len(QNet.cars.keys()))
@@ -48,18 +69,26 @@ for carInd in QNet.cars.keys():
     total += QNet.cars[carInd].total_drive_time
 averageWait = total/numCars
 
+
+
 #Write
 np.savetxt(saveDir + "/traffic_total_flow_" + str(np.random.randint(1,100000)) + ".txt", QNet.total_flow, delimiter=",")
 
-"""        
-#Print network statistics    
-print("\nResults:\n\n")
-print("System stats:\n")
-print("\tTotal arrivals: " + str(total_arrivals) + "\n")
-print("\tAverage wait time: " + str(averageWait) + "\n")
-print("\tTotal traffic flow: \n" + str(QNet.total_flow) + "\n\n")
+np.savetxt(saveDir + "/traffic_over_time_" + str(np.random.randint(1,100000)) + ".txt", trafficStats, delimiter=",")
 
-print("Blockface stats:\n")
-for i in range(len(QNet.bface.keys())):
-    print("\tBlockface " + str(i+1) + " utilization: " + str(utilizationStats[0, i]))
-"""
+np.savetxt(saveDir + "/utilization_" + str(np.random.randint(1,100000)) + ".txt", utilizationStats, delimiter=",")
+
+np.savetxt(saveDir + "/avg_interrejection_" + str(np.random.randint(1,100000)) + ".txt",
+avgInterRejection, delimiter = ",")
+
+if False:        
+    #Print network statistics    
+    print("\nResults:\n\n")
+    print("System stats:\n")
+    print("\tTotal arrivals: " + str(total_arrivals) + "\n")
+    print("\tAverage wait time: " + str(averageWait) + "\n")
+    print("\tTotal traffic flow: \n" + str(QNet.total_flow) + "\n\n")
+    
+    print("Blockface stats:\n")
+    for i in range(len(QNet.bface.keys())):
+        print("\tBlockface " + str(i+1) + " utilization: " + str(utilizationStats[0, i]))

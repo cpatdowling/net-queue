@@ -3,7 +3,8 @@ import os
 from qnet import *
 
 paramFilePath = sys.argv[1]
-params = parameters(paramFilePath)
+params = parameters()
+params.read(paramFilePath)
 
 #initialize network
 QNet = blockfaceNet(params, stats=["utilization"])

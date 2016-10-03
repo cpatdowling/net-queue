@@ -1,49 +1,85 @@
 import numpy as np
 
+def tf(string):
+    if string == "False":
+        return(False)
+    elif string == "True":
+        return(True)
+    else:
+        print("Bad boolean at: " + string)
+        print("Defaulting to False")
+        return(False)
+
 class parameters:
-    def __init__(self, inFilePath):
+    def __init__(self):
         #Global parameters
         self.SIMULATION_TIME = 1000.0
         self.TIME_RESOLUTION = 0.001
         self.DRIVE_TIME = 1.0
         self.BLOCKS_BEFORE_QUIT = 0.0
-        self.GARAGE_PROB = 0.0
+        self.GARAGE_PROB = 0.0  #garage probability is global right now 
+        #Boolean parameters
         self.GARAGE_NEIGHBOR_EFFECT = False
+        self.ALL = ["SIMULATION_TIME", "TIME_RESOLUTION", "BLOCKS_BEFORE_QUIT", "DRIVE_TIME", 
+                    "EXOGENOUS_RATE", "SERVICE_RATE", "RENEGE_TIME", "NUM_SPOTS", 
+                    "ROAD_NETWORK", "GARAGE_PROB", "GARAGE_NEIGHBOR_EFFECT"]
         
         #Network parameters
         self.EXOGENOUS_RATE = 1.5 
         self.SERVICE_RATE = 5.0
         self.RENEGE_TIME = 0.0
         self.NUM_SPOTS = 5
-        #If param file passes single float, float is diagonalized across a network
-        #matrix--not efficient use of memory but helps with later steady state computation
+        #If param file passes single float, float is diagonalized across a network matrix
         self.diagonalize = ["EXOGENOUS_RATE", "SERVICE_RATE", "RENEGE_TIME", "NUM_SPOTS"]
-        
-        self.ROAD_NETWORK = ""
-        self.GARAGE_NETWORK = ""
 
+        #Network topologies
+        #Default network is 2-clique
+        self.ROAD_NETWORK = np.array([[0,1],
+                                      [1,0]])
+        #no parking garages/lots by default
+        self.GARAGE_NETWORK = np.array([[0,0],
+                                        [0,0]])
+        self.networks = ["ROAD_NETWORK", "GARAGE_NETWORK"]
+        
+    def read(self, inFilePath):
         #read parameter file
-        try:
-            inFile = open(inFilePath, 'r')
-            lines = inFile.readlines()
-            for line in lines:
-                tokens = line.strip().split("=")
-                if line[0] == "#" or line.strip() == "":
-                    pass
-                elif tokens[1].strip()[0] == "/":
+        inFile = open(inFilePath, 'r')
+        lines = inFile.readlines()
+        for line in lines:
+            tokens = line.strip().split("=")
+            if line[0] == "#" or line.strip() == "":
+                pass
+            elif tokens[1].strip()[0] == "/":
+                try:
                     arr = np.loadtxt(tokens[1].strip(), dtype=np.dtype(float), delimiter = ",")
                     setattr(self, tokens[0].strip(), arr)
+                except Exception as err:
+                    print("Error reading parameter file path at line: ")
+                    print(line)
+                    print(err)
+            elif tokens[1].strip()[0] == "T" or tokens[1].strip()[0] == "F":
+                setattr(self, tokens[0].strip(), tf(tokens[1].strip()))
+            else:
+                setattr(self, tokens[0].strip(), float(tokens[1].strip()))
+        for att in self.diagonalize:
+            if type(getattr(self, att)) != np.ndarray:
+                setattr(self, att, getattr(self, att) * np.eye(self.ROAD_NETWORK.shape[1]))
+            
+    def write(self, outFilePath, ident):
+        with open(outFilePath + "/" + ident + "_params.txt", 'w') as f:
+            for att in self.ALL:
+                if att in self.diagonalize:
+                    f.write(att + " = " + outFilePath + "/" + ident + "_" + att + ".txt \n")
+                    try:
+                        np.savetxt(outFilePath + "/" + ident + "_" + att + ".txt", getattr(self, att), delimiter=",")
+                    except:
+                        out = getattr(self, att) * np.eye(self.ROAD_NETWORK.shape[1])
+                        np.savetxt(outFilePath + "/" + ident + "_" + att + ".txt", out, delimiter=",")
+                elif att in self.networks:
+                    f.write(att + " = " + outFilePath + "/" + ident + "_" + att + ".txt \n")
+                    np.savetxt(outFilePath + "/" + ident + "_" + att + ".txt", getattr(self, att), delimiter=",")
                 else:
-                    setattr(self, tokens[0].strip(), float(tokens[1].strip()))
-            for att in self.diagonalize:
-                if type(getattr(self, att)) != np.ndarray:
-                    setattr(self, att, getattr(self, att) * np.eye(self.ROAD_NETWORK.shape[1]))
-        except Exception as err:
-            print("Could not read parameter file.")
-            print(err)
-
-        if self.GARAGE_NETWORK == "":
-            self.GARAGE_NETWORK = np.zeros(self.ROAD_NETWORK.shape)
+                    f.write(att + " = " + str(getattr(self, att)) + "\n")
        
 class blockface:
     def __init__(self, index=False, lambd=1.0, mu=2.0, renege=0.0, num_spots=5, garage = False):
@@ -69,6 +105,8 @@ class blockface:
         self.queue_length = []
         self.isolated_rejects = 0
         self.parking_garage_rejects = 0
+        self.last_reject_time = 0.0
+        self.inter_reject_times = []
 
 class street:
     def __init__(self, index, min_travel=1.0, max_travel=100.0):
@@ -81,6 +119,8 @@ class street:
         self.max_travel_time = max_travel
         #driver index and countdown timer tuple for arriving traffic at next blockface
         self.traffic = []
+        #this is where I'm keeping track of the number of cars on the road at each stats time step
+        self.volume = []
         
     def get_travel_time(self, block, dist="fixed", val=1.0):
         #want to reference parameter class
@@ -116,6 +156,8 @@ class blockfaceNet:
         self.cars = {}
         self.carIndex = 0
         self.trakers = []
+        #for plotting values over time
+        self.clock = []
         
         self.all_spots = []
         for ii in range(num_blocks):
@@ -127,16 +169,23 @@ class blockfaceNet:
             block_ids = [ i for i in range(len(neighboring_blocks)) ]
             self.bface[ii].neighbors = zip(block_ids, neighboring_blocks)
             
+            #not sure if neighbor_streets is actively using the street class, it is, little convoluted though--polling street class for travel time in step time function
             for k in range(len(self.bface[ii].neighbors)):
                 self.bface[ii].neighbor_streets[k] = street(index = (ii, self.bface[ii].neighbors[k][1]))
 
             self.all_spots.append(self.bface[ii].spots)
         
         self.streets = {}
+        self.streets_traffic = {}
+        
         for origin in range(num_blocks):
-            self.streets[origin] = list()
+            #ideally I'd invoke a street class item here that has the below list, as well as the rest of the street class attributes
+            #self.street_traffic is going to be a placeholder for the functionality I want
+            self.streets[origin] = list()  
+            self.streets_traffic[origin] = list()          
             for dest_n in range(len(self.bface[origin].neighbors)):
                 self.streets[origin].append(self.bface[origin].neighbor_streets[dest_n].traffic)
+                self.streets_traffic[origin].append(list())
                 
         self.injection_b = np.diag(self.params.EXOGENOUS_RATE)
         injection_blocks = np.diag(self.params.EXOGENOUS_RATE)
@@ -150,10 +199,20 @@ class blockfaceNet:
         
         for ii in range(num_blocks):
             for k in range(len(self.bface[ii].neighbors)):
-                if self.params.GARAGE_NEIGHBOR_EFFECT == 1.0:
+                if self.params.GARAGE_NEIGHBOR_EFFECT == True:
                     self.bface[self.bface[ii].neighbors[k][1]].garage = True
+    
+    def debug(self):
+        #could pass class attribute name and then have it print all the values, that would be cool
+        #current printing some street values
+        print("self.streets: ")
+        print(self.streets)
+        print("\nself.streets[0]: ")
+        print(self.streets[0])
+        print("\nself.streets[0][0]: ")
+        print(self.streets[0][0])
         
-    def step_time(self, supress=False):
+    def step_time(self, supress=False, debug=False):
         self.timer = self.timer + self.params.TIME_RESOLUTION  
         #countdowns
         self.new_arrival_timer = self.new_arrival_timer - self.params.TIME_RESOLUTION
@@ -163,24 +222,41 @@ class blockfaceNet:
                 if len(self.streets[origin][street]) > 0:
                     self.streets[origin][street] = [ (self.streets[origin][street][k][0], self.streets[origin][street][k][1] - self.params.TIME_RESOLUTION) for k in range(len(self.streets[origin][street])) ]
                 else:
-                    #self.streets[origin][street] = list()
                     pass
         #print progress
         if supress == True:
             pass
         else:
-            if self.timer % (self.params.SIMULATION_TIME / 10) <= self.params.TIME_RESOLUTION:
+            if self.timer % (self.params.SIMULATION_TIME / 10.0) <= self.params.TIME_RESOLUTION:
                 print(str(int(self.timer / (self.params.SIMULATION_TIME/100))) + "% complete")
+                
+                if debug == True:
+                    #can edit debug class to decide what to print
+                    self.debug()
             
+        if self.timer % (self.params.SIMULATION_TIME / 100.0) <= self.params.TIME_RESOLUTION:
+            self.clock.append(self.timer)
+        
         if "utilization" in self.stats:
-            if self.timer % (self.params.SIMULATION_TIME / 100) <= self.params.TIME_RESOLUTION:
+            if self.timer % (self.params.SIMULATION_TIME / 100.0) <= self.params.TIME_RESOLUTION:
                 for block in self.bface.keys():
                     spots = float(self.bface[block].num_parking_spots)
                     parked = float(len([ i for i, x in enumerate(self.all_spots[block]) if x >  self.params.TIME_RESOLUTION ]))
                     self.bface[block].utilization.append(parked/spots)
+                    
+        
+                    
+        if "traffic" in self.stats:
+            #individual street basis
+            if self.timer % (self.params.SIMULATION_TIME / 100.0) <= self.params.TIME_RESOLUTION:
+                for origin in range(len(self.bface.keys())):
+                    for street in range(len(self.streets[origin])):
+                        traf = len(self.streets[origin][street])
+                        self.streets_traffic[origin][street].append(traf)
         
         if "queue-length" in self.stats:
-            if self.timer % (self.params.SIMULATION_TIME / 100) <= self.params.TIME_RESOLUTION:
+            #per block basis
+            if self.timer % (self.params.SIMULATION_TIME / 100.0) <= self.params.TIME_RESOLUTION:
                 for block in self.streets.keys():
                     #incoming streets
                     num_streets = float(len(self.streets[block]))
@@ -189,6 +265,10 @@ class blockfaceNet:
                         total += float(len(strt))
                     avg_length = total/num_streets
                     self.bface[block].queue_length.append(avg_length)
+                    
+        if "rejection" in self.stats:
+            #set default block to measure interrejection time
+            pass
             
     def park(self, block, carIndex):
         self.bface[block].total += 1
@@ -204,6 +284,15 @@ class blockfaceNet:
             self.bface[block].served += 1
         else:
             try:
+                if "rejection" in self.stats:
+                    #updating rejection time sensor and appending rejection times
+                    last_reject = self.bface[block].last_reject_time
+                    curr_time = self.timer
+                    inter_reject = curr_time - last_reject
+                    self.bface[block].inter_reject_times.append(inter_reject)
+                    self.bface[block].last_reject_time = curr_time
+                else:
+                    pass
                 newDest = self.bface[block].neighbors[np.random.choice([ i for i in range(len(self.bface[block].neighbors)) ])]
                 newBface = newDest[1]
                 newBfaceIndex = newDest[0]
