@@ -16,6 +16,7 @@ class parameters:
         self.SIMULATION_TIME = 1000.0
         self.TIME_RESOLUTION = 0.001
         self.DRIVE_TIME = 1.0
+        self.DRIVE_DIST = "exponential" #also accepts "fixed" for fixed value drive times
         self.BLOCKS_BEFORE_QUIT = 0.0
         self.GARAGE_PROB = 0.0  #garage probability is global right now 
         #Boolean parameters
@@ -60,7 +61,15 @@ class parameters:
             elif tokens[1].strip()[0] == "T" or tokens[1].strip()[0] == "F":
                 setattr(self, tokens[0].strip(), tf(tokens[1].strip()))
             else:
-                setattr(self, tokens[0].strip(), float(tokens[1].strip()))
+                try:
+                    #float parameters
+                    setattr(self, tokens[0].strip(), float(tokens[1].strip()))
+                except:
+                    #string parameters
+                    setattr(self, tokens[0].strip(), tokens[1].strip())
+        #handling network corner cases
+        if self.GARAGE_NEIGHBOR_EFFECT == False:
+            self.GARAGE_NETWORK = np.zeros(self.ROAD_NETWORK.shape)
         for att in self.diagonalize:
             if type(getattr(self, att)) != np.ndarray:
                 setattr(self, att, getattr(self, att) * np.eye(self.ROAD_NETWORK.shape[1]))
@@ -296,7 +305,10 @@ class blockfaceNet:
                 newDest = self.bface[block].neighbors[np.random.choice([ i for i in range(len(self.bface[block].neighbors)) ])]
                 newBface = newDest[1]
                 newBfaceIndex = newDest[0]
-                drive_time = self.bface[block].neighbor_streets[newBfaceIndex].get_travel_time(self.bface[newBface], dist="exponential", val = self.params.DRIVE_TIME)
+                if self.params.DRIVE_DIST == "fixed":
+                    drive_time = self.params.DRIVE_TIME
+                else:
+                    drive_time = self.bface[block].neighbor_streets[newBfaceIndex].get_travel_time(self.bface[newBface], dist=self.params.DRIVE_DIST, val = self.params.DRIVE_TIME)
                 if self.params.BLOCKS_BEFORE_QUIT != 0.0:
                     if self.cars[carIndex].total_drive_time > self.params.BLOCKS_BEFORE_QUIT * self.params.DRIVE_TIME:
                         self.bface[block].parking_garage_rejects += 1
@@ -307,6 +319,7 @@ class blockfaceNet:
                         self.streets[block][newBfaceIndex].sort(key = lambda t: t[1])
                 else:
                     self.cars[carIndex].total_drive_time += drive_time
+                    self.cars[carIndex].bfaces_attempted.append(block)
                     self.total_flow[block, newBface] += 1
                     self.streets[block][newBfaceIndex].append((carIndex, drive_time))
                     self.streets[block][newBfaceIndex].sort(key = lambda t: t[1])

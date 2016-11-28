@@ -2,8 +2,6 @@ import sys
 import os
 from qnet import *
 
-import pickle
-
 paramFilePath = sys.argv[1]
 saveDir = sys.argv[2]
 params = parameters()

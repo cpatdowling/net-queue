@@ -2,28 +2,53 @@ import sys
 import os
 from qnet import *
 
-import pickle
-
 paramFilePath = sys.argv[1]
 saveDir = sys.argv[2]
 params = parameters()
 params.read(paramFilePath)
 
+#strategy
+probObs = float(sys.argv[3])
+probBalk = float(sys.argv[4])
+probJoin = float(sys.argv[5])
+
 #initialize network
 QNet = blockfaceNet(params, stats=["utilization", "traffic", "rejection"])
 
 total_arrivals = 0
+balks = 0
   
 while QNet.timer < QNet.params.SIMULATION_TIME:
     currently_arriving_blocks = [ j for j, x in enumerate(list(QNet.new_arrival_timer)) if x < QNet.params.TIME_RESOLUTION ]
     if len(currently_arriving_blocks) > 0:
         for i in currently_arriving_blocks:
+            actionProb = np.random.uniform(0,1)
             total_arrivals += 1
             blockindex = QNet.injection_map[i]
-            QNet.bface[blockindex].exogenous += 1
-            QNet.carIndex += 1
-            QNet.cars[QNet.carIndex] = car(QNet.carIndex)
-            QNet.park(blockindex, QNet.carIndex)
+            if actionProb > (1.0 - probBalk):
+                #straight up quit
+                balks += 1
+            elif actionProb < probJoin:
+                #straight up join
+                QNet.bface[blockindex].exogenous += 1
+                QNet.carIndex += 1
+                QNet.cars[QNet.carIndex] = car(QNet.carIndex)
+                QNet.park(blockindex, QNet.carIndex)
+            else:
+                #observe then quit or join
+                available_spots = []
+                for k in range(len(QNet.bface.keys())):
+                    num_open = len([ j for j, x in enumerate(QNet.all_spots[k]) if x <= QNet.bface[k].renege_rate + QNet.params.TIME_RESOLUTION ])
+                    if num_open > 0:
+                        available_spots.append(k)
+                if len(available_spots) > 0:
+                    blockindex = available_spots[np.random.randint(len(available_spots))]
+                    QNet.bface[blockindex].exogenous += 1
+                    QNet.carIndex += 1
+                    QNet.cars[QNet.carIndex] = car(QNet.carIndex)
+                    QNet.park(blockindex, QNet.carIndex)
+                else:
+                    balks += 1
 
             next_arrival_time = np.random.exponential(QNet.bface[blockindex].arrival_rate)
             QNet.new_arrival_timer[i] = next_arrival_time        
@@ -69,7 +94,7 @@ total = 0.0
 numCars = float(len(QNet.cars.keys()))
 for carInd in QNet.cars.keys():
     total += QNet.cars[carInd].total_drive_time
-    #print(QNet.cars[carInd].bfaces_attempted) #potential error in wait times
+    #print(QNet.cars[carInd].bfaces_attempted)
 averageWait = np.array([[total/numCars]])
 
 
