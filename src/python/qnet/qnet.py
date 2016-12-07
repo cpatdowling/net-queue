@@ -33,8 +33,8 @@ class parameters:
         #If param file passes single float, float is diagonalized across a network matrix
         self.diagonalize = ["EXOGENOUS_RATE", "SERVICE_RATE", "RENEGE_TIME", "NUM_SPOTS"]
 
-        #Network topologies
-        #Default network is 2-clique
+        #Directed network topologies
+        #Default network is 2-cycle
         self.ROAD_NETWORK = np.array([[0,1],
                                       [1,0]])
         #no parking garages/lots by default
@@ -109,9 +109,10 @@ class blockface:
         self.total = 0
         self.exogenous = 0
         self.served = 0
-        self.avg_park_time = 0.0
-        self.utilization = []
-        self.queue_length = []
+        self.avg_park_time = 0.0 #sanity check, should be service rate
+        self.utilization = [] #records percent servers in use at regular time inervals
+        self.num_in_service = [] #records total number of cars currently in service at regular time intervals
+        self.queue_length = [] #looks at incoming roads
         self.isolated_rejects = 0
         self.parking_garage_rejects = 0
         self.last_reject_time = 0.0
@@ -167,6 +168,7 @@ class blockfaceNet:
         self.trakers = []
         #for plotting values over time
         self.clock = []
+        self.measurement_increment = 1000.0 #sensor resolution
         
         self.all_spots = []
         for ii in range(num_blocks):
@@ -243,29 +245,30 @@ class blockfaceNet:
                     #can edit debug class to decide what to print
                     self.debug()
             
-        if self.timer % (self.params.SIMULATION_TIME / 100.0) <= self.params.TIME_RESOLUTION:
+        if self.timer % (self.params.SIMULATION_TIME / self.measurement_increment) <= self.params.TIME_RESOLUTION:
             self.clock.append(self.timer)
         
-        if "utilization" in self.stats:
-            if self.timer % (self.params.SIMULATION_TIME / 100.0) <= self.params.TIME_RESOLUTION:
+            if "utilization" in self.stats:
                 for block in self.bface.keys():
                     spots = float(self.bface[block].num_parking_spots)
                     parked = float(len([ i for i, x in enumerate(self.all_spots[block]) if x >  self.params.TIME_RESOLUTION ]))
                     self.bface[block].utilization.append(parked/spots)
                     
-        
+            if "stationary" in self.stats:
+                for block in self.bface.keys():
+                    parked = float(len([ i for i, x in enumerate(self.all_spots[block]) if x >  self.params.TIME_RESOLUTION ]))
+                    self.bface[block].num_in_service.append(parked)
+
                     
-        if "traffic" in self.stats:
-            #individual street basis
-            if self.timer % (self.params.SIMULATION_TIME / 100.0) <= self.params.TIME_RESOLUTION:
+            if "traffic" in self.stats:
+                #individual street basis
                 for origin in range(len(self.bface.keys())):
                     for street in range(len(self.streets[origin])):
                         traf = len(self.streets[origin][street])
                         self.streets_traffic[origin][street].append(traf)
         
-        if "queue-length" in self.stats:
-            #per block basis
-            if self.timer % (self.params.SIMULATION_TIME / 100.0) <= self.params.TIME_RESOLUTION:
+            if "queue-length" in self.stats:
+                #per block basis
                 for block in self.streets.keys():
                     #incoming streets
                     num_streets = float(len(self.streets[block]))
@@ -275,9 +278,9 @@ class blockfaceNet:
                     avg_length = total/num_streets
                     self.bface[block].queue_length.append(avg_length)
                     
-        if "rejection" in self.stats:
-            #set default block to measure interrejection time
-            pass
+            if "rejection" in self.stats:
+                #set default block to measure interrejection time
+                pass
             
     def park(self, block, carIndex):
         self.bface[block].total += 1

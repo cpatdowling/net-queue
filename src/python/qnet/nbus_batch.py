@@ -1,5 +1,6 @@
 import sys
 import os
+import numpy as np
 from qnet import *
 
 import pickle
@@ -10,7 +11,7 @@ params = parameters()
 params.read(paramFilePath)
 
 #initialize network
-QNet = blockfaceNet(params, stats=["utilization", "traffic", "rejection"])
+QNet = blockfaceNet(params, stats=["utilization", "traffic", "rejection", "stationary"])
 
 total_arrivals = 0
   
@@ -43,12 +44,19 @@ while QNet.timer < QNet.params.SIMULATION_TIME:
 #calculate network statistics
 utilizationStats = np.zeros((1,len(QNet.bface.keys())))
 avgInterRejection = np.zeros((1, len(QNet.bface.keys())))
+maxSpaces = int(np.max(QNet.params.NUM_SPOTS))
+stationaryDistributions = np.zeros((len(QNet.bface.keys()), maxSpaces+1))
+stationaryBins = range(maxSpaces+2) #+1 for when block is empty, +1 for open max interval in np.histogram, maxSpaces + 1 relevant values
 for i in QNet.bface.keys():
-        utilizationStats[0, i] = float(sum(QNet.bface[i].utilization))/float(len(QNet.bface[i].utilization))
-        try:
-            avgInterRejection[0, i] = float(sum(QNet.bface[i].inter_reject_times))/float(len(QNet.bface[i].inter_reject_times))
-        except:
-            avgInterRejection[0, i] = 0.0
+    utilizationStats[0, i] = float(sum(QNet.bface[i].utilization))/float(len(QNet.bface[i].utilization))
+    statDist = list(np.histogram(QNet.bface[i].num_in_service, bins=stationaryBins, density=True)[0])
+    for k in range(len(statDist)):
+        stationaryDistributions[i, k] = statDist[k]
+    try:
+        avgInterRejection[0, i] = float(sum(QNet.bface[i].inter_reject_times))/float(len(QNet.bface[i].inter_reject_times))
+    except:
+        avgInterRejection[0, i] = 0.0
+    
         
 #colate street traffic stats
 #this is super fuckin hacky, damn streets, need to make blocks and streets the same
@@ -74,6 +82,9 @@ averageWait = np.array([[total/numCars]])
 
 
 
+
+
+
 #Write
 simulation_ID = str(np.random.randint(1,100000))
 
@@ -87,6 +98,8 @@ np.savetxt(saveDir + "/avg_interrejection_" + simulation_ID + ".txt",
 avgInterRejection, delimiter = ",")
 
 np.savetxt(saveDir + "/avg_wait_" + simulation_ID + ".txt", averageWait, delimiter = ",")
+
+np.savetxt(saveDir + "/stationary_dist_" + simulation_ID + ".txt", stationaryDistributions, delimiter = ",")
 
 
 
