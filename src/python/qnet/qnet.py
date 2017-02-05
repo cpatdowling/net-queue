@@ -23,11 +23,12 @@ class parameters:
         self.GARAGE_NEIGHBOR_EFFECT = False
         self.ALL = ["SIMULATION_TIME", "TIME_RESOLUTION", "BLOCKS_BEFORE_QUIT", "DRIVE_TIME", 
                     "EXOGENOUS_RATE", "SERVICE_RATE", "RENEGE_TIME", "NUM_SPOTS", 
-                    "ROAD_NETWORK", "GARAGE_PROB", "GARAGE_NEIGHBOR_EFFECT"]
+                    "ROAD_NETWORK", "GARAGE_PROB", "GARAGE_NEIGHBOR_EFFECT", "DRIVE_DIST"]
         
         #Network parameters
         self.EXOGENOUS_RATE = 1.5 
         self.SERVICE_RATE = 5.0
+        self.SERVICE_RATE_DIST = "fixed"
         self.RENEGE_TIME = 0.0
         self.NUM_SPOTS = 5
         #If param file passes single float, float is diagonalized across a network matrix
@@ -168,7 +169,7 @@ class blockfaceNet:
         self.trakers = []
         #for plotting values over time
         self.clock = []
-        self.measurement_increment = 1000.0 #sensor resolution
+        self.measurement_increment = 1000.0 #sensor resolution (number of measurements)
         
         self.all_spots = []
         for ii in range(num_blocks):
@@ -291,7 +292,10 @@ class blockfaceNet:
         if self.bface[block].garage == True and garageProb < self.params.GARAGE_PROB:
             self.bface[block].parking_garage_rejects += 1
         elif len(available_spots) > 0:
-            car_park_time = np.random.exponential(self.bface[block].service_rate)
+            if self.params.SERVICE_RATE_DIST == "fixed":
+                car_park_time = self.bface[block].service_rate
+            else:
+                car_park_time = np.random.exponential(self.bface[block].service_rate)
             self.all_spots[block][available_spots[0]] = car_park_time
             self.bface[block].served += 1
         else:
@@ -327,6 +331,6 @@ class blockfaceNet:
                     self.streets[block][newBfaceIndex].append((carIndex, drive_time))
                     self.streets[block][newBfaceIndex].sort(key = lambda t: t[1])
             except Exception as err:
-                print("isolated reject error at blockface " + str(block))
+                print("Isolated reject error at blockface " + str(block))
                 print(err)
                 self.bface[block].isolated_rejects += 1
