@@ -1,6 +1,9 @@
+import sys
+import os
 import numpy as np
 
-def tf(string):
+def tf(string):  
+    #converting string boolean values to true boolean type for parameter values
     if string == "False":
         return(False)
     elif string == "True":
@@ -12,36 +15,31 @@ def tf(string):
 
 class parameters:
     def __init__(self):
-        #Global parameters
+        #all parameter values
+        self.ALL = ["SIMULATION_TIME", "TIME_RESOLUTION", "DRIVE_TIME", "DRIVE_DIST",
+                    "EXOGENOUS_INTERARRIVAL", "SERVICE_TIME", "RENEGE_TIME", "NUM_SPOTS", 
+                    "ROAD_NETWORK"]
+        #If param file passes single float, float is diagonalized across a network matrix
+        self.diagonalize = ["EXOGENOUS_INTERARRIVAL", "SERVICE_TIME", "RENEGE_TIME", "NUM_SPOTS"]
+
+        #Simulator parameters
         self.SIMULATION_TIME = 1000.0
         self.TIME_RESOLUTION = 0.001
-        self.DRIVE_TIME = 1.0
-        self.DRIVE_DIST = "exponential" #also accepts "fixed" for fixed value drive times
-        self.BLOCKS_BEFORE_QUIT = 0.0
-        self.GARAGE_PROB = 0.0  #garage probability is global right now 
-        #Boolean parameters
-        self.GARAGE_NEIGHBOR_EFFECT = False
-        self.ALL = ["SIMULATION_TIME", "TIME_RESOLUTION", "BLOCKS_BEFORE_QUIT", "DRIVE_TIME", 
-                    "EXOGENOUS_RATE", "SERVICE_RATE", "RENEGE_TIME", "NUM_SPOTS", 
-                    "ROAD_NETWORK", "GARAGE_PROB", "GARAGE_NEIGHBOR_EFFECT", "DRIVE_DIST"]
-        
+
         #Network parameters
-        self.EXOGENOUS_RATE = 1.5 
-        self.SERVICE_RATE = 5.0
-        self.SERVICE_RATE_DIST = "fixed"
+        self.EXOGENOUS_INTERARRIVAL = 1.5 
+        self.SERVICE_TIME = 5.0
+        self.SERVICE_RATE_DIST = "fixed" #distribution for service times, eg exponential or fixed
         self.RENEGE_TIME = 0.0
         self.NUM_SPOTS = 5
-        #If param file passes single float, float is diagonalized across a network matrix
-        self.diagonalize = ["EXOGENOUS_RATE", "SERVICE_RATE", "RENEGE_TIME", "NUM_SPOTS"]
+        self.DRIVE_TIME = 1.0
+        self.DRIVE_DIST = "exponential" #distribution for drive times, eg exponential or fixed
 
         #Directed network topologies
         #Default network is 2-cycle
         self.ROAD_NETWORK = np.array([[0,1],
                                       [1,0]])
-        #no parking garages/lots by default
-        self.GARAGE_NETWORK = np.array([[0,0],
-                                        [0,0]])
-        self.networks = ["ROAD_NETWORK", "GARAGE_NETWORK"]
+        self.networks = ["ROAD_NETWORK"] #list is hold over for multiple overlaid networks (parking garages)
         
     def read(self, inFilePath):
         #read parameter file
@@ -68,9 +66,7 @@ class parameters:
                 except:
                     #string parameters
                     setattr(self, tokens[0].strip(), tokens[1].strip())
-        #handling network corner cases
-        if self.GARAGE_NEIGHBOR_EFFECT == False:
-            self.GARAGE_NETWORK = np.zeros(self.ROAD_NETWORK.shape)
+
         for att in self.diagonalize:
             if type(getattr(self, att)) != np.ndarray:
                 setattr(self, att, getattr(self, att) * np.eye(self.ROAD_NETWORK.shape[1]))
@@ -90,6 +86,8 @@ class parameters:
                     np.savetxt(outFilePath + "/" + ident + "_" + att + ".txt", getattr(self, att), delimiter=",")
                 else:
                     f.write(att + " = " + str(getattr(self, att)) + "\n")
+
+
        
 class blockface:
     def __init__(self, index=False, lambd=1.0, mu=2.0, renege=0.0, num_spots=5, garage = False):

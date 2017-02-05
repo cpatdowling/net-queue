@@ -1,0 +1,15 @@
+#Test parameter file
+#Comments can be made per line with the pound sign
+
+#Float parameters
+SIMULATION_TIME = 1000.0
+TIME_RESOLUTION = 0.001
+DRIVE_TIME = 0.1
+DRIVE_DIST = fixed
+
+#Filepath parameters
+EXOGENOUS_INTERARRIVAL = /home/chase/projects/net-queue/test/five_block_test/test_exogenous_interarrival.txt
+SERVICE_TIME = /home/chase/projects/net-queue/test/five_block_test/test_service_time.txt
+RENEGE_TIME = /home/chase/projects/net-queue/test/five_block_test/test_renege_time.txt
+NUM_SPOTS = /home/chase/projects/net-queue/test/five_block_test/test_num_spots.txt
+ROAD_NETWORK = /home/chase/projects/net-queue/test/five_block_test/test_road_network.txt

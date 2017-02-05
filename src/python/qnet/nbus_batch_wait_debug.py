@@ -2,6 +2,8 @@ import sys
 import os
 from qnet import *
 
+import pickle
+
 paramFilePath = sys.argv[1]
 saveDir = sys.argv[2]
 params = parameters()
@@ -36,7 +38,7 @@ while QNet.timer < QNet.params.SIMULATION_TIME:
 		            QNet.streets[origin][dest].pop(0)
 		            if len(QNet.streets[origin][dest]) == 0:
 			            break
-    QNet.step_time(supress=True, debug=False)
+    QNet.step_time(supress=False, debug=False)
     
 #calculate network statistics
 utilizationStats = np.zeros((1,len(QNet.bface.keys())))
@@ -69,6 +71,9 @@ for carInd in QNet.cars.keys():
     total += QNet.cars[carInd].total_drive_time
     #print(QNet.cars[carInd].bfaces_attempted) #potential error in wait times
 averageWait = np.array([[total/numCars]])
+
+outfile = open(saveDir + "/carsclass.pck", 'w')
+pickle.dump(QNet.cars, outfile)
 
 
 
