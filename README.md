@@ -1,8 +1,14 @@
 # net-queue
+
+# Publications
 (NOTE: Branch version 1.1 -- not master) Network queue simulator for "How Much Urban Traffic is Searching for Parking", submitted to KDD 2017
 
 (NOTE: Branch version 1.0 -- not master) Network queue simulator for "To Observe or Not to Observe: Queueing Game Framework for Urban Parking", submitted to IEEE CDC 2016.
 
+src/matlab for analysis of the stationary distribution of symmetric network queues is current with the master branch--instructions contained in individual functions/scripts.
+
+-------------------------------------------------------------------------------------------------------------------------------
+# Simulator
 
 Requirements:
 	
