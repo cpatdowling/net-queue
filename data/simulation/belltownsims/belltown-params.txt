@@ -1,0 +1,23 @@
+#Parameters passed filepaths are assumed to find matrices
+#must be fully qualified paths
+
+#Global Parameters
+SIMULATION_TIME = 6000.0
+TIME_RESOLUTION = 0.2
+DRIVE_TIME = 3.0
+DRIVE_DIST = fixed
+RENEGE_TIME = 0.0
+GARAGE_PROB = 0.0
+GARAGE_NEIGHBOR_EFFECT = False
+SERVICE_RATE_DIST = "fixed"
+
+#Network Parameters
+ROAD_NETWORK = ~/net-queue/data/simulation/belltownsims/belltowndata/belltownmodeldata/belltown-dir-array.txt
+SERVICE_RATE = ~/net-queue/data/simulation/belltownsims/belltowndata/belltownmodeldata/belltown-service-minutes-array.txt
+NUM_SPOTS = ~/net-queue/data/simulation/belltownsims/belltowndata/belltownmodeldata/belltown-supply-array.txt
+
+
+#Change this file path to change the arrival rates to correspond to those calculated by the matlab 
+#script 'net-queue/src/matlab/recoverarrival_local_uniformity.m' for a specific day and time
+
+EXOGENOUS_RATE = ~/net-queue/data/simulation/belltownsims/belltowndata/belltownmodeldata/belltown-arrival-array.txt

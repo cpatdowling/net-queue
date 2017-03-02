@@ -1,0 +1,12 @@
+SIMULATION_TIME = 6000.0
+TIME_RESOLUTION = 0.2
+BLOCKS_BEFORE_QUIT = 0.0
+DRIVE_TIME = 3.0
+EXOGENOUS_RATE = ~/net-queue-full/data/simulation/belltownsims/Monday/12/ARRIVAL_RATE_hour_12_EXOGENOUS_RATE.txt 
+SERVICE_RATE = ~/net-queue-full/data/simulation/belltownsims/Monday/12/ARRIVAL_RATE_hour_12_SERVICE_RATE.txt 
+RENEGE_TIME = ~/net-queue-full/data/simulation/belltownsims/Monday/12/ARRIVAL_RATE_hour_12_RENEGE_TIME.txt 
+NUM_SPOTS = ~/net-queue-full/data/simulation/belltownsims/Monday/12/ARRIVAL_RATE_hour_12_NUM_SPOTS.txt 
+ROAD_NETWORK = ~/projects/net-queue-full/data/simulation/belltownsims/Monday/12/ARRIVAL_RATE_hour_12_ROAD_NETWORK.txt 
+GARAGE_PROB = 0.0
+GARAGE_NEIGHBOR_EFFECT = False
+DRIVE_DIST = fixed

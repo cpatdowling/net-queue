@@ -1,15 +1,32 @@
+%Author: Chase Dowling, cpatdowling@gmail.com, 2017
+
 clear all; clc;
-typesim = 'blockface'; %network or blockface
 
-typeserv = 'fixservice'; %fixservice or vary service
+%this script populates simulation parameter directories to reproduce
+%experiments performed in KDD 2017 submission
 
-modeldatapath = '/home/chase/projects/net-queue-full/data/simulation/belltownsims/belltowndata/belltownmodeldata/';
-parampath = '/home/chase/projects/net-queue-full/data/simulation/belltownsims/';
+disp('If calculating for the entire week, this can take several hours,')
+disp('did not implement parallelization out of laziness')
+
+typesim = 'blockface'; %network or blockface -- uses the network-wide or
+                       %                        or per-block-face estimate
+                       %                        of occupancy
+
+typeserv = 'fixservice'; %fixservice or varyservice
+                         %fixes service to the mean service time across
+                         %the network when calculated the estimated
+                         %exogenous arrival rate or sets individual
+                         %block-face average service times
+
+modeldatapath = '../../data/simulation/belltownsims/belltowndata/belltownmodeldata/';
+parampath = '../../data/simulation/belltownsims/';
+
 days = {'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'};
-%days = {'Saturday'};
 
 for n = 1:numel(days)
     day = days{1,n};
+    disp('calculating for ')
+    disp(day)
     %network or individual blockface occupancy data
     occupdata = csvread(strcat(modeldatapath,day,'_',typesim,'_Average_Loads_Matlab.csv'));
     supplydata = csvread(strcat(modeldatapath,'belltown-supply-array.txt'));
@@ -24,6 +41,7 @@ for n = 1:numel(days)
     
     dims = size(occupdata);
     for row = 1:dims(1,1)
+        disp('block number')
         disp(row)
         for hour = 1:dims(1,2)
             if degdata(row,row) == 0
@@ -38,7 +56,7 @@ for n = 1:numel(days)
                     break
                 end
             end
-            if strcmp(typesim,'network') %matlab equality test for strings
+            if strcmp(typesim,'network')
                 %for networkwork wide arrival estimates
                 for rowi = 1:256
                     truearrivals(rowi,hour) = 1.0/B(jj,1);
