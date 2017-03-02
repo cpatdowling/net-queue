@@ -5,7 +5,8 @@
 SIMULATION_TIME = 1000.0
 TIME_RESOLUTION = 0.001
 DRIVE_TIME = 0.1
-DRIVE_DIST = fixed
+DRIVE_TIME_DIST = fixed
+SERVICE_TIME_DIST = fixed
 
 #Filepath parameters
 EXOGENOUS_INTERARRIVAL = /home/chase/projects/net-queue/test/five_block_test/test_exogenous_interarrival.txt
