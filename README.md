@@ -1,9 +1,14 @@
 # net-queue
 
 # Publications
-(NOTE: Branch version 1.1 -- not master) Network queue simulator for "How Much Urban Traffic is Searching for Parking", submitted to KDD 2017
+(NOTE: Branch version 1.1 -- not master) Network queue simulator for "How Much Urban Traffic is Searching for Parking", submitted to KDD 2017: https://arxiv.org/pdf/1702.06156.pdf
 
-(NOTE: Branch version 1.0 -- not master) Network queue simulator for "To Observe or Not to Observe: Queueing Game Framework for Urban Parking", submitted to IEEE CDC 2016.
+-Averaged block-face occupancy data is available in /net-queue/data/simulation/belltownsims/belltowndata/belltownmodeldata
+-Daily block-face occupancy data is publically available at https://data.seattle.gov/ and also through contacting the Seattle
+	Department of Transportation (SDOT) directly
+-Daily traffic volume data for May 2016 (used in this paper) is available through, from Stephen Barham, SDOT: https://public.tableau.com/profile/stephen.barham#!/vizhome/shared/SNMHR2RC6
+
+(NOTE: Branch version 1.0 -- not master) Network queue simulator for "To Observe or Not to Observe: Queueing Game Framework for Urban Parking", submitted to IEEE CDC 2016: https://arxiv.org/pdf/1603.08995.pdf
 
 src/matlab for analysis of the stationary distribution of symmetric network queues is current with the master branch--instructions contained in individual functions/scripts.
 
