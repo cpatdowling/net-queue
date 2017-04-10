@@ -2,8 +2,9 @@ import sys
 import os
 import numpy as np
 
-def tf(string):  
-    #converting string boolean values to true boolean type for parameter values
+#helper functions
+
+def tf(string): #for boolean parameter values
     if string == "False":
         return(False)
     elif string == "True":
@@ -13,27 +14,50 @@ def tf(string):
         print("Defaulting to False")
         return(False)
 
+def sample_dist(distname, distparams):
+    #distribution types are encoded in class objects, this function
+    #samples accordingly
+    if distname == "fixed":
+        val = distparams
+    elif distname == "exponential":
+        val = np.random.exponential(distparams)
+    elif distname == "uniform":
+        val = np.random.uniform(distparams[0], distparams[1])
+    else:
+        print("sample_dist (helper) error, distribution type not known.")
+        print(distname)
+        val = False
+    return(val)
+
 class parameters:
     def __init__(self):
         #all parameter values
-        self.ALL = ["SIMULATION_TIME", "TIME_RESOLUTION", "DRIVE_TIME", "DRIVE_DIST",
-                    "EXOGENOUS_INTERARRIVAL", "SERVICE_TIME", "RENEGE_TIME", "NUM_SPOTS", 
-                    "ROAD_NETWORK"]
+        self.ALL = ["SIMULATION_TIME", "TIME_RESOLUTION", "DRIVE_TIME_DIST", "DRIVE_TIME_DIST",
+                    "EXOGENOUS_INTERARRIVAL", "SERVICE_TIME_DIST", "RENEGE_TIME", "NUM_SPOTS", 
+                    "ROAD_NETWORK", "VERBOSE"]
         #If param file passes single float, float is diagonalized across a network matrix
         self.diagonalize = ["EXOGENOUS_INTERARRIVAL", "SERVICE_TIME", "RENEGE_TIME", "NUM_SPOTS"]
 
         #Simulator parameters
         self.SIMULATION_TIME = 1000.0
         self.TIME_RESOLUTION = 0.001
+        self.VERBOSE = True
+        
+        #Simulator statistics to collect, list of keywords
+        self.STATS = [] 
+            #"occupancy": measures proportion of servers in use at given time intervals
+            #"stationary": collects data to estimate stationary distribution of queues
+            #"interrejection": collects data to determine interreject time distribution for queue
+            #"traffic": collects data on the number of cars on each street
 
         #Network parameters
         self.EXOGENOUS_INTERARRIVAL = 1.5 
         self.SERVICE_TIME = 5.0
-        self.SERVICE_RATE_DIST = "fixed" #distribution for service times, eg exponential or fixed
-        self.RENEGE_TIME = 0.0
+        self.SERVICE_TIME_DIST = "fixed" #distribution for service times, eg exponential or fixed
+        self.RENEGE_TIME = 0.0           #amount of time driver will spend before quitting: not implemented
         self.NUM_SPOTS = 5
         self.DRIVE_TIME = 1.0
-        self.DRIVE_DIST = "exponential" #distribution for drive times, eg exponential or fixed
+        self.DRIVE_TIME_DIST = "exponential" #distribution for drive times, eg exponential or fixed
 
         #Directed network topologies
         #Default network is 2-cycle
@@ -72,7 +96,7 @@ class parameters:
                 setattr(self, att, getattr(self, att) * np.eye(self.ROAD_NETWORK.shape[1]))
             
     def write(self, outFilePath, ident):
-        with open(outFilePath + "/" + ident + "_params.txt", 'w') as f:
+        with open(outFilePath + "/" + ident + "_PARAMS.txt", 'w') as f:
             for att in self.ALL:
                 if att in self.diagonalize:
                     f.write(att + " = " + outFilePath + "/" + ident + "_" + att + ".txt \n")
@@ -88,247 +112,228 @@ class parameters:
                     f.write(att + " = " + str(getattr(self, att)) + "\n")
 
 
-       
-class blockface:
-    def __init__(self, index=False, lambd=1.0, mu=2.0, renege=0.0, num_spots=5, garage = False):
-        self.i = index
-        self.arrival_rate = lambd
-        self.service_rate = mu
-        self.renege_rate = renege
-        self.num_parking_spots = num_spots
-        self.spots = np.array([0.0 for j in range(int(num_spots))])
-        self.neighbors = []
-        self.neighbor_streets = {}
-        if int(garage) == 1 or garage == True:
-            self.garage = True
+class nqueue: #this queue class serves as the queue type for both streets and blockfaces
+    def __init__(self, category, index, paramsInst):
+        self.INDEX = index
+        self.CATEGORY = category
+        self.TIME_RESOLUTION = paramsInst.TIME_RESOLUTION
+        self.ERR_LOG = {} #key is car index, val is error message
+        if category == "blockface":
+            self.EXOGENOUS_INTERARRIVAL = paramsInst.EXOGENOUS_INTERARRIVAL
+            self.SERVICE_TIME = paramsInst.SERVICE_TIME[index, index]
+            self.SERVICE_TIME_DIST = paramsInst.SERVICE_TIME_DIST
+            self.NUM_SPOTS = paramsInst.NUM_SPOTS[index, index]
+            self.ACTIVE_SERVERS = np.zeros((int(self.NUM_SPOTS),))
+            self.NEIGHBORING_BLOCKS = []
+            
+            #statistics
+            self.TOTAL = 0
+            self.SERVED = 0
+            self.EXOGENOUS_ARRIVALS = 0
+            self.LAST_REJECT_TIME = 0.0
+        
+            #stats requiring multiple measurements
+            self.OCCUPANCY = []
+            self.STATIONARY = []
+            self.INTERREJECTION_TIMES = []
+            
+        elif category == "street":
+            self.ORIGIN = index[0]
+            self.DESTINATION = index[1]
+            self.SERVICE_TIME = paramsInst.DRIVE_TIME
+            self.SERVICE_TIME_DIST = paramsInst.DRIVE_TIME_DIST
+            self.NUM_SPOTS = np.inf #infinite server queue
+            self.ACTIVE_SERVERS = np.zeros((20,)) #assuming a likely maximum capacity, 
+                                     #will dynamically expand if needed
+            
+            #statistics
+            self.TOTAL = 0
+            
+            #stats with multiple measurements
+            self.TRAFFIC = []   #number of vehicles currently on road per measurement
+        
         else:
-            self.garage = False
+            category == "garage" #empty category for now
+            print("Unprototyped nqueue category: garage")
+            pass
         
-        #for calculating block face stats
-        self.total = 0
-        self.exogenous = 0
-        self.served = 0
-        self.avg_park_time = 0.0 #sanity check, should be service rate
-        self.utilization = [] #records percent servers in use at regular time inervals
-        self.num_in_service = [] #records total number of cars currently in service at regular time intervals
-        self.queue_length = [] #looks at incoming roads
-        self.isolated_rejects = 0
-        self.parking_garage_rejects = 0
-        self.last_reject_time = 0.0
-        self.inter_reject_times = []
+    def get_service_time(self):
+        service_time = sample_dist(self.SERVICE_TIME_DIST, self.SERVICE_TIME)
+        return(service_time)
+    
+    def get_num_in_service(self):
+        num = self.ACTIVE_SERVERS[self.ACTIVE_SERVERS > self.TIME_RESOLUTION].shape[0]
+        return(num)
+    
+    def get_available_servers(self):
+        #for determining availability in finite capacity queues
+        available = [ j for j, x in enumerate(self.ACTIVE_SERVERS) if x <= self.TIME_RESOLUTION ]
+        if self.CATEGORY == "street" and len(available) == 0:
+            new_server_array = np.concatenate( (self.ACTIVE_SERVERS, np.zeros((1,))), axis=0)
+            self.ACTIVE_SERVERS = new_server_array
+            available = [self.ACTIVE_SERVERS.shape[0] - 1]
+        return(available)
+    
+    def get_neighbor_block(self, carInst):
+        #asks car instance for search strategy
+        newDest = carInst.choose_next_block(self.NEIGHBORING_BLOCKS)
+        if newDest == False:
+            print("Isolated rejection occured at block-face: " + str(self.INDEX))
+        return(newDest)
+    
+    def new_car(self, carInst, current_time):
+        #update global stats
+        self.TOTAL += 1
+        
+        #update servers
+        stime = self.get_service_time()
+        available_servers = self.get_available_servers()
+        self.ACTIVE_SERVERS[available_servers[0]] = stime
+        
+        if self.CATEGORY == "street":
+            #update car stats
+            carInst.BLOCK_TIMES.append(current_time)
+            carInst.BLOCKS_ATTEMPTED.append(self.ORIGIN)
+            carInst.TOTAL_DRIVE_TIME += stime
+            
+            #update street stats
+        
+        elif self.CATEGORY == "blockface":
+            #update car stats
+            carInst.BLOCKS_ATTEMPTED.append(self.INDEX)
+            carInst.SERVICE_TIME = stime
+            carInst.EXIT_TIME = stime + current_time
+            
+            #update blockface stats
+            self.SERVED += 1
+        
+        elif self.CATEGORY == "garage":
+            pass
 
-class street:
-    def __init__(self, index, min_travel=1.0, max_travel=100.0):
-        #index is (origin, dest) wrt whole newtork
-        self.index = index
-        self.weight = False
-        #this is where I'll put some sort of parameters for the get_travel_time function below
-        self.capacity = False
-        self.min_travel_time = min_travel
-        self.max_travel_time = max_travel
-        #driver index and countdown timer tuple for arriving traffic at next blockface
-        self.traffic = []
-        #this is where I'm keeping track of the number of cars on the road at each stats time step
-        self.volume = []
-        
-    def get_travel_time(self, block, dist="fixed", val=1.0):
-        #want to reference parameter class
-        if dist=="fixed":
-            travelTime = val
-        elif dist=="exponential":
-            travelTime = np.random.exponential(val)
-        elif dist=="interval":
-            travelTime = self.min_travel_time
-            if len(self.traffic) > block.num_parking_spots and len(self.traffic) < self.max_travel_time - block.num_parking_spots:
-                travelTime += len(self.traffic)
-            elif len(self.traffic) > block.num_parking_spots:
-                travelTime = self.max_travel_time
-        return(travelTime)
-        
 class car:
     def __init__(self, index, tracker=False):
-        #use this to keep track of individual parkers
-        self.index = index
-        self.track_status = tracker
-        self.service_times = []
-        self.renege_times = []
-        self.bfaces_attempted = []
-        self.total_drive_time = 0.0
+        self.INDEX = index
+        self.TRACK_STATUS = tracker
+        self.ARRIVAL_TIME = 0.0 #simulation time when a car arrived to the network
+        self.EXIT_TIME = 0.0    #simulation time when a car exited the network
+        self.SERVICE_TIME = 0.0 #how long the car parked for
+        self.RENEGE_TIME = 0.0  #how long before a car eventually quit
+        self.BLOCK_TIMES = [] #simulation times at which a car was blocked
+        self.BLOCKS_ATTEMPTED = [] #indecies of blocks the car attempted to park at, including the successful block
+        self.TOTAL_DRIVE_TIME = 0.0 #how long the car spent driving
+        self.SEARCH_STRATEGY = "uniform" #develop search strategy here, so next block can be chosen from queue class
+                                         #according to this search strategy
+            
+    def choose_next_block(neighbors):
+        #choose from list of integers, neighbors, next block
+        if len(neighbors) == 0:
+            print("Isolated rejection at network boundary (no out-degree neighbors)")
+            next_block = False
+        if self.SEARCH_STRATEGY == "uniform":
+            next_block = np.random.choice(neighbors)
+        return(next_block)
 
 class blockfaceNet:
     def __init__(self, paramInstance, stats=[]):
-        self.params = paramInstance
-        num_blocks = self.params.ROAD_NETWORK.shape[1]
-        self.stats = stats
-        self.timer = 0.0
-        self.bface = {}
-        self.cars = {}
-        self.carIndex = 0
-        self.trakers = []
-        #for plotting values over time
-        self.clock = []
-        self.measurement_increment = 1000.0 #sensor resolution (number of measurements)
+        self.PARAMS = paramInstance
+        self.PARAMS.STATS = stats
+        self.TIMER = 0.0
+        self.STOPWATCH = []
+        self.NUM_MEASUREMENTS = 1000.0 #number of measurements for in situ sensors
         
-        self.all_spots = []
+        num_blocks = self.PARAMS.ROAD_NETWORK.shape[1]
+        self.BLOCKFACES = {}
         for ii in range(num_blocks):
-            self.bface[ii] = blockface(index=ii, lambd=self.params.EXOGENOUS_RATE[ii,ii],
-                                       mu=self.params.SERVICE_RATE[ii,ii], 
-                                       renege=self.params.RENEGE_TIME[ii,ii], 
-                                       num_spots = self.params.NUM_SPOTS[ii,ii], garage = self.params.GARAGE_NETWORK[ii,ii])
-            neighboring_blocks = [ j for j, x in enumerate(self.params.ROAD_NETWORK[ii]) if x == 1 ]
-            block_ids = [ i for i in range(len(neighboring_blocks)) ]
-            self.bface[ii].neighbors = zip(block_ids, neighboring_blocks)
-            
-            #not sure if neighbor_streets is actively using the street class, it is, little convoluted though--polling street class for travel time in step time function
-            for k in range(len(self.bface[ii].neighbors)):
-                self.bface[ii].neighbor_streets[k] = street(index = (ii, self.bface[ii].neighbors[k][1]))
-
-            self.all_spots.append(self.bface[ii].spots)
+            self.BLOCKFACES[ii] = nqueue("blockface", ii, self.PARAMS)
+            neighboring_blocks = [ j for j, x in enumerate(self.PARAMS.ROAD_NETWORK[ii,:]) if x == 1 ]
+            self.BLOCKFACES[ii].NEIGHBORING_BLOCKS = neighboring_blocks
         
-        self.streets = {}
-        self.streets_traffic = {}
+        #new arrival timer        
+        arrival_times = np.diag(self.PARAMS.EXOGENOUS_INTERARRIVAL)
+        self.INJECTION_BLOCKS = [ i for i, x in enumerate(arrival_times) if float(x) != 0.0 ]
+        self.NEW_ARRIVAL_TIMER = np.zeros((len(self.INJECTION_BLOCKS),))
+        for bi in range(len(self.INJECTION_BLOCKS)):
+            curr = self.INJECTION_BLOCKS[bi]
+            inittime = self.BLOCKFACES[curr].get_service_time()
+            self.NEW_ARRIVAL_TIMER[bi] = inittime   
         
+        self.STREETS = {} #key is origin blockface, value is dict of streets with 
+                          #destinations by key
         for origin in range(num_blocks):
-            #ideally I'd invoke a street class item here that has the below list, as well as the rest of the street class attributes
-            #self.street_traffic is going to be a placeholder for the functionality I want
-            self.streets[origin] = list()  
-            self.streets_traffic[origin] = list()          
-            for dest_n in range(len(self.bface[origin].neighbors)):
-                self.streets[origin].append(self.bface[origin].neighbor_streets[dest_n].traffic)
-                self.streets_traffic[origin].append(list())
+            self.STREETS[origin] = {}
+            for dest_n in self.BLOCKFACES[origin].NEIGHBORING_BLOCKS:
+                self.STREETS[origin][dest_n] = nqueue("street", (origin,dest_n), self.PARAMS)
                 
-        self.injection_b = np.diag(self.params.EXOGENOUS_RATE)
-        injection_blocks = np.diag(self.params.EXOGENOUS_RATE)
-        injection_block_indicies = [ i for i, x in enumerate(injection_blocks) if float(x) != 0.0 ]
-        self.injection_map = {}
-        for b in range(len(injection_block_indicies)):
-            self.injection_map[b] = injection_block_indicies[b]
-        self.new_arrival_timer = np.zeros(len(injection_block_indicies))
-        
-        self.total_flow = np.zeros(self.params.ROAD_NETWORK.shape)
-        
-        for ii in range(num_blocks):
-            for k in range(len(self.bface[ii].neighbors)):
-                if self.params.GARAGE_NEIGHBOR_EFFECT == True:
-                    self.bface[self.bface[ii].neighbors[k][1]].garage = True
+        self.CARS = {} #index keys to car object values, keeps track of all arrivals to system
     
-    def debug(self):
-        #could pass class attribute name and then have it print all the values, that would be cool
-        #current printing some street values
-        print("self.streets: ")
-        print(self.streets)
-        print("\nself.streets[0]: ")
-        print(self.streets[0])
-        print("\nself.streets[0][0]: ")
-        print(self.streets[0][0])
-        
-    def step_time(self, supress=False, debug=False):
-        self.timer = self.timer + self.params.TIME_RESOLUTION  
+    def step_time(self):
+        self.TIMER += self.PARAMS.TIME_RESOLUTION
         #countdowns
-        self.new_arrival_timer = self.new_arrival_timer - self.params.TIME_RESOLUTION
-        self.all_spots = [ (spots - self.params.TIME_RESOLUTION) for spots in self.all_spots ]
-        for origin in self.streets.keys():
-            for street in range(len(self.streets[origin])):
-                if len(self.streets[origin][street]) > 0:
-                    self.streets[origin][street] = [ (self.streets[origin][street][k][0], self.streets[origin][street][k][1] - self.params.TIME_RESOLUTION) for k in range(len(self.streets[origin][street])) ]
-                else:
-                    pass
-        #print progress
-        if supress == True:
-            pass
-        else:
-            if self.timer % (self.params.SIMULATION_TIME / 10.0) <= self.params.TIME_RESOLUTION:
-                print(str(int(self.timer / (self.params.SIMULATION_TIME/100))) + "% complete")
+        for block in self.BLOCKFACES.keys():
+            self.BLOCKFACES[block].ACTIVE_SERVERS -= self.PARAMS.TIME_RESOLUTION
+            for st in self.STREETS[block]: #streets originating from the current block
+                self.STREETS[block][st].ACTIVE_SERVERS -= self.PARAMS.TIME_RESOLUTION
                 
-                if debug == True:
-                    #can edit debug class to decide what to print
-                    self.debug()
-            
-        if self.timer % (self.params.SIMULATION_TIME / self.measurement_increment) <= self.params.TIME_RESOLUTION:
-            self.clock.append(self.timer)
+        if self.TIMER % (self.PARAMS.SIMULATION_TIME / 10) <= self.PARAMS.TIME_RESOLUTION:
+            if self.PARAMS.VERBOSE == True:
+                print(str(int(self.TIMER / (self.PARAMS.SIMULATION_TIME/100))) + "% complete")
         
-            if "utilization" in self.stats:
-                for block in self.bface.keys():
-                    spots = float(self.bface[block].num_parking_spots)
-                    parked = float(len([ i for i, x in enumerate(self.all_spots[block]) if x >  self.params.TIME_RESOLUTION ]))
-                    self.bface[block].utilization.append(parked/spots)
-                    
-            if "stationary" in self.stats:
-                for block in self.bface.keys():
-                    parked = float(len([ i for i, x in enumerate(self.all_spots[block]) if x >  self.params.TIME_RESOLUTION ]))
-                    self.bface[block].num_in_service.append(parked)
-
-                    
-            if "traffic" in self.stats:
-                #individual street basis
-                for origin in range(len(self.bface.keys())):
-                    for street in range(len(self.streets[origin])):
-                        traf = len(self.streets[origin][street])
-                        self.streets_traffic[origin][street].append(traf)
-        
-            if "queue-length" in self.stats:
-                #per block basis
-                for block in self.streets.keys():
-                    #incoming streets
-                    num_streets = float(len(self.streets[block]))
-                    total = 0.0
-                    for strt in self.streets[block]:
-                        total += float(len(strt))
-                    avg_length = total/num_streets
-                    self.bface[block].queue_length.append(avg_length)
-                    
-            if "rejection" in self.stats:
-                #set default block to measure interrejection time
-                pass
+        #sensor measurements
+        if self.TIMER % (self.PARAMS.SIMULATION_TIME / self.NUM_MEASUREMENTS) <= self.PARAMS.TIME_RESOLUTION:
+            self.STOPWATCH.append(self.TIMER)
+            self.collect_timer_stats()
             
+            
+    def collect_timer_stats(self):
+        #stats collected at times recorded by self.STOPWATCH, to few to bother with options function
+        if "occupancy" in self.PARAMS.STATS:
+            self.update_occupancy()
+                
+        if "stationary" in self.PARAMS.STATS:
+            self.update_stationary()
+            
+        if "traffic" in self.PARAMS.STATS:
+            self.update_traffic()
+            
+    #simulation statistics for blockfaces
+    #STOPWATCH determined statistics
+    def update_occupancy(self):
+        for block in self.BLOCKFACES.keys():
+            spots = float(self.BLOCKFACES[block].NUM_SPOTS)
+            parked = float(self.BLOCKFACES[block].get_num_in_service())
+            self.BLOCKFACES[block].OCCUPANCY.append(parked/spots)
+            
+    def update_stationary(self):
+        for block in self.BLOCKFACES.keys():
+            parked = float(self.BLOCKFACES[block].get_num_in_service())
+            self.BLOCKFACES[block].STATIONARY.append(parked)
+            
+    def update_traffic(self):
+        for src in self.STREETS.keys():
+            for dest in self.STREETS[src].keys():
+                traff = float(self.STREETS[src][dest].get_num_in_service())
+                self.STREETS[src][dest].TRAFFIC.append(traff)
+    
+    #event determined statistics (measured when it happens)
+    def update_interrejection(self, block):
+        #updating rejection time sensor and appending rejection times
+        last_reject = self.BLOCKFACE[block].LAST_REJECT_TIME
+        inter_reject = self.TIMER - last_reject
+        self.BLOCKFACE[block].INTERREJECTION_TIMES.append(inter_reject)
+        self.BLOCKFACE[block].LAST_REJECT_TIME = self.TIMER
+    
     def park(self, block, carIndex):
-        self.bface[block].total += 1
-        #no wait time at a block for the moment
-        #available_spots = [ j for j, x in enumerate(self.all_spots[block]) if x <= self.bface[block].renege_rate + self.params.TIME_RESOLUTION ]
-        available_spots = [ j for j, x in enumerate(self.all_spots[block]) if x <= self.params.TIME_RESOLUTION ]
-        garageProb = np.random.uniform(0,1)
-        if self.bface[block].garage == True and garageProb < self.params.GARAGE_PROB:
-            self.bface[block].parking_garage_rejects += 1
-        elif len(available_spots) > 0:
-            if self.params.SERVICE_RATE_DIST == "fixed":
-                car_park_time = self.bface[block].service_rate
-            else:
-                car_park_time = np.random.exponential(self.bface[block].service_rate)
-            self.all_spots[block][available_spots[0]] = car_park_time
-            self.bface[block].served += 1
+        available_spots = self.BLOCKFACES[block].get_available_servers()        
+        if len(available_spots) > 0:
+            self.BLOCKFACES[block].new_car(self.CARS[carIndex], self.TIMER) #update queue with new car
         else:
+            if "interrejection" in self.PARAMS.STATS:
+                self.update_interrejection(block)
             try:
-                if "rejection" in self.stats:
-                    #updating rejection time sensor and appending rejection times
-                    last_reject = self.bface[block].last_reject_time
-                    curr_time = self.timer
-                    inter_reject = curr_time - last_reject
-                    self.bface[block].inter_reject_times.append(inter_reject)
-                    self.bface[block].last_reject_time = curr_time
-                else:
-                    pass
-                newDest = self.bface[block].neighbors[np.random.choice([ i for i in range(len(self.bface[block].neighbors)) ])]
-                newBface = newDest[1]
-                newBfaceIndex = newDest[0]
-                if self.params.DRIVE_DIST == "fixed":
-                    drive_time = self.params.DRIVE_TIME
-                else:
-                    drive_time = self.bface[block].neighbor_streets[newBfaceIndex].get_travel_time(self.bface[newBface], dist=self.params.DRIVE_DIST, val = self.params.DRIVE_TIME)
-                if self.params.BLOCKS_BEFORE_QUIT != 0.0:
-                    if self.cars[carIndex].total_drive_time > self.params.BLOCKS_BEFORE_QUIT * self.params.DRIVE_TIME:
-                        self.bface[block].parking_garage_rejects += 1
-                    else:
-                        self.cars[carIndex].total_drive_time += drive_time
-                        self.total_flow[block, newBface] += 1
-                        self.streets[block][newBfaceIndex].append((carIndex, drive_time))
-                        self.streets[block][newBfaceIndex].sort(key = lambda t: t[1])
-                else:
-                    self.cars[carIndex].total_drive_time += drive_time
-                    self.cars[carIndex].bfaces_attempted.append(block)
-                    self.total_flow[block, newBface] += 1
-                    self.streets[block][newBfaceIndex].append((carIndex, drive_time))
-                    self.streets[block][newBfaceIndex].sort(key = lambda t: t[1])
+                next_blockface = self.BLOCKFACES[block].get_neighbor_block(self.CARS[carIndex]) #takes car as argument for search strategy
+                self.STREETS[block][next_blockface].new_car(self.CARS[carIndex], self.TIMER) #update queue with new car
             except Exception as err:
                 print("Isolated reject error at blockface " + str(block))
                 print(err)
-                self.bface[block].isolated_rejects += 1
+                self.BLOCKFACES[block].ERR_LOG[carIndex] = err
+
