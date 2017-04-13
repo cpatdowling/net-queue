@@ -1,10 +1,12 @@
-SIMULATION_TIME = 2000.0
+SIMULATION_TIME = 500.0
 TIME_RESOLUTION = 0.001
 DRIVE_TIME_DIST = fixed
 DRIVE_TIME_DIST = fixed
 EXOGENOUS_INTERARRIVAL = ../../../test/five_block_test//write_test_EXOGENOUS_INTERARRIVAL.txt 
 SERVICE_TIME_DIST = exponential
+SERVICE_TIME = ../../../test/five_block_test//write_test_SERVICE_TIME.txt 
 RENEGE_TIME = ../../../test/five_block_test//write_test_RENEGE_TIME.txt 
 NUM_SPOTS = ../../../test/five_block_test//write_test_NUM_SPOTS.txt 
 ROAD_NETWORK = ../../../test/five_block_test//write_test_ROAD_NETWORK.txt 
+ARRIVAL_DIST = exponential
 VERBOSE = True
