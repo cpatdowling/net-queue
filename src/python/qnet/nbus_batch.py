@@ -16,5 +16,6 @@ QNet.simulate()
 
 #output
 rep = report(QNet, saveDir)
+rep.FULL = True #don't average timer data collection
 rep.write_to_file()
          

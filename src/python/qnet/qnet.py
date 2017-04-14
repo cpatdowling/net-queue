@@ -51,7 +51,7 @@ class parameters:
             #"interrejection": collects data to determine interreject time distribution for queue
             #"traffic": collects data on the number of cars on each street
         self.STATS_OPTIONS_TIMER = ["occupancy", "stationary", "traffic"] #stats measured at intervals
-        
+
         #Network parameters
         self.EXOGENOUS_INTERARRIVAL = 1.5 
         self.ARRIVAL_DIST = "exponential"
@@ -426,6 +426,7 @@ class report:
             outputdir += "/"
         self.OUTPUT_DIRECTORY = outputdir
         self.BLOCKS = sorted(queuenet_inst.BLOCKFACES.keys())
+        self.FULL = False #True to report full array of timer measurements rather than average
         pass
     
     def file_name(self, label):
@@ -443,7 +444,10 @@ class report:
     def occupancy_array(self):
         occup = []
         for block in self.BLOCKS:
-            occup.append(np.mean(np.asarray(self.QNET.BLOCKFACES[block].OCCUPANCY)))
+            if self.FULL:
+                occup.append(np.asarray(self.QNET.BLOCKFACES[block].OCCUPANCY))
+            else:
+                occup.append(np.mean(np.asarray(self.QNET.BLOCKFACES[block].OCCUPANCY)))
         return(np.asarray(occup))
         
     def stationary_array(self):
@@ -459,7 +463,18 @@ class report:
     def interrejection_array(self):
         inter = []
         for block in self.BLOCKS:
-            inter.append(np.mean(np.asarray(self.QNET.BLOCKFACES[block].INTERREJECTION_TIMES)))
+            if self.FULL:
+                inter.append(np.asarray(self.QNET.BLOCKFACES[block].INTERREJECTION_TIMES))
+            else:
+                inter.append(np.mean(np.asarray(self.QNET.BLOCKFACES[block].INTERREJECTION_TIMES)))
+        if self.FULL:
+            lens = [ len(i) for i in inter ]
+            maxlen = max(lens)
+            output = np.zeros((len(inter), maxlen))
+            for i in range(len(inter)):
+                for j in range(inter.shape[0]):
+                    output[i,j] = inter[i][j]
+            inter = output
         return(np.asarray(inter))
     
     def write_to_file(self):
