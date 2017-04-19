@@ -33,8 +33,8 @@ class parameters:
     def __init__(self):
         #all parameter values
         self.ALL = ["SIMULATION_TIME", "TIME_RESOLUTION", "DRIVE_TIME_DIST", "DRIVE_TIME_DIST",
-                    "EXOGENOUS_INTERARRIVAL", "SERVICE_TIME_DIST", "SERVICE_TIME", "RENEGE_TIME", "NUM_SPOTS", 
-                    "ROAD_NETWORK", "ARRIVAL_DIST", "VERBOSE"]
+                    "EXOGENOUS_INTERARRIVAL", "SERVICE_TIME_DIST", "SERVICE_TIME", "RENEGE_TIME",
+                    "NUM_SPOTS", "ROAD_NETWORK", "ARRIVAL_DIST", "VERBOSE"]
         #If param file passes single float, float is diagonalized across a network matrix
         self.diagonalize = ["EXOGENOUS_INTERARRIVAL", "SERVICE_TIME", "RENEGE_TIME", "NUM_SPOTS"]
 
@@ -102,7 +102,7 @@ class parameters:
         with open(outFilePath + "/" + ident + "_PARAMS.txt", 'w') as f:
             for att in self.ALL:
                 if att in self.diagonalize:
-                    f.write(att + " = " + outFilePath + "/" + ident + "_" + att + ".txt \n")
+                    #f.write(att + " = " + outFilePath + "/" + ident + "_" + att + ".txt \n")
                     try:
                         np.savetxt(outFilePath + "/" + ident + "_" + att + ".txt", getattr(self, att), delimiter=",")
                     except:
@@ -366,8 +366,11 @@ class blockfaceNet:
     def update_occupancy(self):
         for block in self.BLOCKFACES.keys():
             spots = float(self.BLOCKFACES[block].NUM_SPOTS)
-            parked = float(self.BLOCKFACES[block].get_num_in_service())
-            self.BLOCKFACES[block].OCCUPANCY.append(parked/spots)
+            if spots > 0:
+                parked = float(self.BLOCKFACES[block].get_num_in_service())
+                self.BLOCKFACES[block].OCCUPANCY.append(parked/spots)
+            else:
+                self.BLOCKFACES[block].OCCUPANCY.append(0.0)
             
     def update_stationary(self):
         for block in self.BLOCKFACES.keys():
@@ -472,7 +475,7 @@ class report:
             maxlen = max(lens)
             output = np.zeros((len(inter), maxlen))
             for i in range(len(inter)):
-                for j in range(inter.shape[0]):
+                for j in range(inter[i].shape[0]):
                     output[i,j] = inter[i][j]
             inter = output
         return(np.asarray(inter))
