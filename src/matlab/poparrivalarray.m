@@ -3,7 +3,7 @@ function [ B ] = poparrivalarray(mu, k, d )
     %arrival rates
     %lambda, degree, number of servers, and service rate, the occupancy
     %level and probability of being full are calculated
-    las = fliplr(0.1:0.1:200);
+    las = fliplr(0.1:0.02:500);
     A = zeros(length(las),5);
     kk = 1;
     occup = 0.0;

@@ -18,7 +18,7 @@ typeserv = 'fixservice'; %fixservice or varyservice
                          %exogenous arrival rate or sets individual
                          %block-face average service times
 
-modeldatapath = '../../data/simulation/belltownsims/belltowndata/belltownmodeldata/';
+modeldatapath = '../../data/simulation/belltownsims/belltowndata/';
 parampath = '../../data/simulation/belltownsims/';
 
 days = {'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'};
